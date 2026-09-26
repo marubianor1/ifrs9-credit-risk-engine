@@ -1,6 +1,6 @@
 # Architecture
 
-The implemented risk-definition foundation currently covers source discovery, schema validation, Bronze ingestion, Silver standardization, a Gold point-in-time loan-month mart, and default/PD target construction for Freddie Mac annual sample ZIP files.
+The implemented development-design foundation currently covers source discovery, schema validation, Bronze ingestion, Silver standardization, a Gold point-in-time loan-month mart, default/PD target construction, and temporal development-sample metadata for Freddie Mac annual sample ZIP files.
 
 ## Current Flow
 
@@ -18,11 +18,12 @@ Freddie Mac sample ZIP files
         -> leakage-aware feature registry
         -> Gold DuckDB analytical views
         -> default event and PD target tables
+        -> temporal development sample metadata
         -> ingestion manifest and data-quality report
         -> DuckDB validation queries
 ```
 
-Bronze outputs are written under `data/bronze/freddie/`, Silver outputs are written under `data/silver/freddie/`, and Gold outputs are written under `data/gold/freddie/`. Target outputs are written under `data/gold/freddie/targets/`. These data outputs are ignored by Git. Execution-specific manifests and DQ reports are written under `artifacts/ingestion/`, `artifacts/silver/`, `artifacts/mart/`, and `artifacts/targets/`, which are also ignored by Git.
+Bronze outputs are written under `data/bronze/freddie/`, Silver outputs are written under `data/silver/freddie/`, and Gold outputs are written under `data/gold/freddie/`. Target outputs are written under `data/gold/freddie/targets/`, and development metadata is written under `data/gold/freddie/development/`. These data outputs are ignored by Git. Execution-specific manifests and DQ reports are written under `artifacts/ingestion/`, `artifacts/silver/`, `artifacts/mart/`, `artifacts/targets/`, and `artifacts/development/`, which are also ignored by Git.
 
 ## Implemented Components
 
@@ -41,8 +42,10 @@ Bronze outputs are written under `data/bronze/freddie/`, Silver outputs are writ
 - `src/ifrs9/mart/validation.py`: Gold mart validation checks.
 - `src/ifrs9/targets/default_config.py`: default definition configuration loader.
 - `src/ifrs9/targets/factory.py`: default event, cure/redefault, 12-month PD target, and lifetime-event foundation builder.
+- `src/ifrs9/development/config.py`: temporal development sample configuration objects.
+- `src/ifrs9/development/factory.py`: split, snapshot, sampling, and repeated-loan diagnostics builder.
 - `src/ifrs9/cli.py`: command-line entry point.
 
 ## Not Yet Implemented
 
-Development sample design, temporal train/validation/OOT splits, scorecards, PD, LGD, EAD, SICR, staging, macro overlays, ECL, stress testing, monitoring, and application pages are intentionally out of scope for the current layer.
+Traditional application and behavioural scorecard development, model experiment tracking, PD calibration, LGD, EAD, SICR, staging, macro overlays, ECL, stress testing, monitoring, and application pages are intentionally out of scope for the current layer.

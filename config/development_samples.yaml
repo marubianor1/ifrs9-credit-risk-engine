@@ -1,0 +1,28 @@
+development_sample:
+  version: v1
+  reporting_cutoff: 2026-03-01
+  binary_12m_full_horizon_cutoff: 2025-03-01
+  model_use: pd
+  population: behavioural
+  snapshot_frequency: quarter_end
+  split_windows:
+    train:
+      start: 2012-01-01
+      end: 2018-12-01
+    validation:
+      start: 2019-01-01
+      end: 2021-12-01
+    oot:
+      start: 2022-01-01
+      end: 2025-03-01
+  sampling:
+    strategy: none
+    seed: 20260927
+    nondefault_sample_fraction: 1.0
+    minimum_nondefaults_per_stratum: 0
+  loan_disjoint: false
+  notes:
+    - Binary 12M PD development requires a full 12-month calendar outcome window.
+    - Rows after 2025-03-01 are excluded from binary 12M development even when a target outcome is observable.
+    - Temporal splits are assigned strictly by as_of_date; no random split is used.
+    - Application population support returns one early eligible observation per loan, but methodology remains provisional.

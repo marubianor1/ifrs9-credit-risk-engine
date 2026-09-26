@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
+from pathlib import Path
 
+from ifrs9.development.factory import run_development_sample_build
 from ifrs9.ingestion.freddie import run_freddie_ingestion
 from ifrs9.mart.loan_month import run_point_in_time_mart_build
 from ifrs9.targets.factory import run_target_build
@@ -55,6 +57,37 @@ def build_parser() -> argparse.ArgumentParser:
         help="Overwrite existing target outputs",
     )
 
+    development = subparsers.add_parser(
+        "build-development-sample",
+        help="Build temporal development sample metadata",
+    )
+    development.add_argument("--config", type=Path, help="Path to development sample YAML")
+    development.add_argument(
+        "--snapshot-frequency",
+        choices=["monthly", "quarter_end", "year_end"],
+        help="Override configured snapshot frequency",
+    )
+    development.add_argument(
+        "--sampling-strategy",
+        choices=["none", "random_nondefault", "stratified_nondefault"],
+        help="Override configured non-default sampling strategy",
+    )
+    development.add_argument(
+        "--population",
+        choices=["application", "behavioural"],
+        help="Override configured population",
+    )
+    development.add_argument(
+        "--loan-disjoint",
+        action="store_true",
+        help="Enable loan-disjoint sensitivity mode",
+    )
+    development.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing development sample output",
+    )
+
     return parser
 
 
@@ -74,6 +107,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     if args.command == "build-targets":
         run_target_build(all_targets=args.all, force=args.force)
+        return 0
+    if args.command == "build-development-sample":
+        run_development_sample_build(
+            force=args.force,
+            config_path=args.config,
+            snapshot_frequency=args.snapshot_frequency,
+            sampling_strategy=args.sampling_strategy,
+            population=args.population,
+            loan_disjoint=True if args.loan_disjoint else None,
+        )
         return 0
 
     parser.error(f"Unsupported command: {args.command}")
