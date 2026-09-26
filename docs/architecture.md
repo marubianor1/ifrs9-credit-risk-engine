@@ -1,6 +1,6 @@
 # Architecture
 
-The implemented analytical foundation currently covers source discovery, schema validation, Bronze ingestion, Silver standardization, and a Gold point-in-time loan-month mart for Freddie Mac annual sample ZIP files.
+The implemented risk-definition foundation currently covers source discovery, schema validation, Bronze ingestion, Silver standardization, a Gold point-in-time loan-month mart, and default/PD target construction for Freddie Mac annual sample ZIP files.
 
 ## Current Flow
 
@@ -17,11 +17,12 @@ Freddie Mac sample ZIP files
         -> Gold point-in-time loan-static and loan-month partitions
         -> leakage-aware feature registry
         -> Gold DuckDB analytical views
+        -> default event and PD target tables
         -> ingestion manifest and data-quality report
         -> DuckDB validation queries
 ```
 
-Bronze outputs are written under `data/bronze/freddie/`, Silver outputs are written under `data/silver/freddie/`, and Gold outputs are written under `data/gold/freddie/`. These data outputs are ignored by Git. Execution-specific manifests and DQ reports are written under `artifacts/ingestion/`, `artifacts/silver/`, and `artifacts/mart/`, which are also ignored by Git.
+Bronze outputs are written under `data/bronze/freddie/`, Silver outputs are written under `data/silver/freddie/`, and Gold outputs are written under `data/gold/freddie/`. Target outputs are written under `data/gold/freddie/targets/`. These data outputs are ignored by Git. Execution-specific manifests and DQ reports are written under `artifacts/ingestion/`, `artifacts/silver/`, `artifacts/mart/`, and `artifacts/targets/`, which are also ignored by Git.
 
 ## Implemented Components
 
@@ -38,8 +39,10 @@ Bronze outputs are written under `data/bronze/freddie/`, Silver outputs are writ
 - `src/ifrs9/mart/feature_registry.py`: leakage-aware feature registry loader and selectors.
 - `src/ifrs9/mart/views.py`: DuckDB Gold view registration.
 - `src/ifrs9/mart/validation.py`: Gold mart validation checks.
+- `src/ifrs9/targets/default_config.py`: default definition configuration loader.
+- `src/ifrs9/targets/factory.py`: default event, cure/redefault, 12-month PD target, and lifetime-event foundation builder.
 - `src/ifrs9/cli.py`: command-line entry point.
 
 ## Not Yet Implemented
 
-Default definitions, target construction, scorecards, PD, LGD, EAD, SICR, staging, macro overlays, ECL, stress testing, monitoring, and application pages are intentionally out of scope for the current layer.
+Development sample design, temporal train/validation/OOT splits, scorecards, PD, LGD, EAD, SICR, staging, macro overlays, ECL, stress testing, monitoring, and application pages are intentionally out of scope for the current layer.

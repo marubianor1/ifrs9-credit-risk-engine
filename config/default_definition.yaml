@@ -1,4 +1,36 @@
 default_definition:
-  status: planned
-  description: To be defined during target construction.
-
+  version: v1
+  source: Freddie Mac Release 47 performance schema and Silver/Gold mart fields
+  reporting_cutoff: 2026-03-01
+  delinquency_threshold_months: 3
+  target_horizon_months: 12
+  cure:
+    probation_months: 3
+    require_consecutive_observed_months: true
+    reporting_gaps_break_probation: true
+  event_hierarchy:
+    - REO_ACQUISITION
+    - CREDIT_EVENT_ZERO_BALANCE
+    - DELINQUENCY_3_PLUS
+  delinquency_status_credit_events:
+    RA: REO Acquisition
+  zero_balance_default_codes:
+    "02": Third Party Sale
+    "03": Short Sale or Charge Off
+    "09": REO Disposition
+  zero_balance_non_default_exit_codes:
+    "01": Prepaid or Matured
+    "15": Whole Loan Sale
+    "16": Reperforming Loan Securitization
+    "96": Defect prior to other termination event
+  excluded_from_default:
+    - MI recoveries
+    - Net sale proceeds
+    - Non-MI recoveries
+    - Total expenses
+    - Actual loss
+    - Modification costs
+  notes:
+    - Default flags become true only when the source event is observable in the monthly performance row.
+    - Zero-balance codes are classified only from documented schema semantics.
+    - Prepayment, matured payoff, whole-loan sale, reperforming loan securitization, and defect-prior termination are treated as non-default exits.
