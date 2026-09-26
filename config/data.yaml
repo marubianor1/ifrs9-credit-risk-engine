@@ -16,3 +16,8 @@ source_data:
     performance_pattern: sample_perf_{year}.txt
     archive_pattern: sample_{year}.zip
     field_separator: "|"
+
+ingestion:
+  fail_on_column_mismatch: true
+  bronze_freddie_dir: data/bronze/freddie
+  manifest_dir: artifacts/ingestion

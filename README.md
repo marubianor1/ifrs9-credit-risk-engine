@@ -4,11 +4,11 @@ Professional portfolio project to build a reproducible IFRS 9 credit risk and ex
 
 The intended end-to-end architecture covers data ingestion, data quality, default definition, scoring, rating, 12-month and lifetime PD, EAD, LGD, SICR, staging, forward-looking macroeconomic adjustment, scenario weighting, ECL, stress testing, validation, monitoring, reporting, and an application layer.
 
-Current status: **Data foundation — source schema analysis**.
+Current status: **Data Foundation — Bronze ingestion**.
 
-No ETL pipeline, models, transformations, or IFRS 9 estimates have been implemented yet.
+The Source to Bronze ingestion pipeline has been implemented for the local Freddie Mac sample archives. No Silver transformations, models, feature engineering, default definitions, or IFRS 9 estimates have been implemented yet.
 
-The current project layer contains a lightweight Freddie Mac source inventory, schema drift notes, and a version-controlled schema registry for the observed sample files.
+The current project layer contains a lightweight Freddie Mac source inventory, schema drift notes, a version-controlled schema registry for Release 47 sample files, and a reproducible Bronze Parquet ingestion pipeline.
 
 ## Dataset
 
@@ -43,6 +43,18 @@ Install Poetry, then from the repository root run:
 
 ```bash
 poetry install
+```
+
+Run Freddie Mac Source to Bronze ingestion for one year:
+
+```bash
+poetry run ifrs9 ingest-freddie --year 2012
+```
+
+Run all discovered local sample years:
+
+```bash
+poetry run ifrs9 ingest-freddie --all
 ```
 
 Run quality checks after the environment is installed:

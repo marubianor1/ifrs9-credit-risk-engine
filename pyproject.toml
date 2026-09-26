@@ -21,6 +21,9 @@ dependencies = [
     "mlflow>=2.15.0,<3.0.0",
 ]
 
+[project.scripts]
+ifrs9 = "ifrs9.cli:main"
+
 [tool.poetry]
 packages = [{ include = "ifrs9", from = "src" }]
 
