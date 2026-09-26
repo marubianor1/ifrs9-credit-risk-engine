@@ -1,0 +1,637 @@
+{
+  "schema_id": "freddie_performance_v1",
+  "dataset": "performance",
+  "source": "Freddie Mac Single-Family Loan-Level Dataset sample archives",
+  "delimiter": "|",
+  "header": false,
+  "version": "v1",
+  "expected_column_count": 35,
+  "guide_reference": "Freddie Mac Release 47 / July 2026 disclosure layout and local sample validation",
+  "notes": [
+    "Release 47 / July 2026 physical layout observed in sample_2012.zip through sample_2026.zip with 100 sampled rows per file.",
+    "Positions 33-35 are Mortgage Insurance Cancellation Indicator, Servicer Name, and Bankruptcy Cramdown Costs.",
+    "Historical population availability may vary even when the physical column is present."
+  ],
+  "columns": [
+    {
+      "position": 1,
+      "source_name": "LOAN SEQUENCE NUMBER",
+      "canonical_name": "loan_id",
+      "description": "Unique loan identifier assigned by Freddie Mac for the dataset.",
+      "source_type": "Alpha-numeric",
+      "target_type": "string",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": [
+        "PYYQnXXXXXXX"
+      ],
+      "date_format": null,
+      "category": "identifier"
+    },
+    {
+      "position": 2,
+      "source_name": "PERIOD",
+      "canonical_name": "period",
+      "description": "As-of month for loan performance information.",
+      "source_type": "Date",
+      "target_type": "string",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": [
+        "YYYYMM"
+      ],
+      "date_format": "YYYYMM",
+      "category": "date"
+    },
+    {
+      "position": 3,
+      "source_name": "CURRENT ACTUAL UPB",
+      "canonical_name": "current_actual_upb",
+      "description": "Ending mortgage balance for the reporting period, including interest-bearing and non-interest-bearing portions where applicable.",
+      "source_type": "Numeric Literal Decimal",
+      "target_type": "decimal",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "date_format": null,
+      "category": "balance"
+    },
+    {
+      "position": 4,
+      "source_name": "CURRENT LOAN DELINQUENCY STATUS",
+      "canonical_name": "current_loan_delinquency_status",
+      "description": "MBA-method delinquency status or REO acquisition status.",
+      "source_type": "Alpha-numeric",
+      "target_type": "string",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": [
+        "0=current or <30 DPD",
+        "1=30-59 DPD",
+        "2=60-89 DPD",
+        "3=90-119 DPD",
+        "4 and above=additional delinquency months",
+        "RA=REO Acquisition",
+        "XX=Observed initial-period sample status"
+      ],
+      "date_format": null,
+      "category": "delinquency"
+    },
+    {
+      "position": 5,
+      "source_name": "LOAN AGE",
+      "canonical_name": "loan_age",
+      "description": "Scheduled payments from origination or modification first payment date through the current period.",
+      "source_type": "Numeric",
+      "target_type": "integer",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": [
+        "Months"
+      ],
+      "date_format": null,
+      "category": "servicing"
+    },
+    {
+      "position": 6,
+      "source_name": "REMAINING MONTHS TO LEGAL MATURITY",
+      "canonical_name": "remaining_months_to_legal_maturity",
+      "description": "Months remaining to legal maturity, using modified maturity date for modified loans.",
+      "source_type": "Numeric",
+      "target_type": "integer",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": [
+        "Months"
+      ],
+      "date_format": null,
+      "category": "servicing"
+    },
+    {
+      "position": 7,
+      "source_name": "DEFECT SETTLEMENT DATE",
+      "canonical_name": "defect_settlement_date",
+      "description": "Date when an underwriting or servicing defect settlement event occurred.",
+      "source_type": "Date",
+      "target_type": "string",
+      "nullable": true,
+      "missing_codes": [
+        "",
+        "      "
+      ],
+      "valid_values": [
+        "YYYYMM",
+        "Blank or spaces=Not Applicable"
+      ],
+      "date_format": "YYYYMM",
+      "category": "default"
+    },
+    {
+      "position": 8,
+      "source_name": "MODIFICATION FLAG",
+      "canonical_name": "modification_flag",
+      "description": "Indicates modification in current or prior period.",
+      "source_type": "Alpha",
+      "target_type": "string",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": {
+        "Y": "Current Period Modification",
+        "P": "Prior Period Modification",
+        "": "Not Modified"
+      },
+      "date_format": null,
+      "category": "modification"
+    },
+    {
+      "position": 9,
+      "source_name": "ZERO BALANCE CODE",
+      "canonical_name": "zero_balance_code",
+      "description": "Reason code for the loan balance being reduced to zero.",
+      "source_type": "Numeric",
+      "target_type": "string",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": {
+        "01": "Prepaid or Matured",
+        "02": "Third Party Sale",
+        "03": "Short Sale or Charge Off",
+        "09": "REO Disposition",
+        "15": "Whole Loan Sale",
+        "16": "Reperforming Loan Securitization",
+        "96": "Defect prior to other termination event"
+      },
+      "date_format": null,
+      "category": "default"
+    },
+    {
+      "position": 10,
+      "source_name": "ZERO BALANCE EFFECTIVE DATE",
+      "canonical_name": "zero_balance_effective_date",
+      "description": "Date on which the zero-balance event occurred.",
+      "source_type": "Date",
+      "target_type": "string",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": [
+        "YYYYMM"
+      ],
+      "date_format": "YYYYMM",
+      "category": "date"
+    },
+    {
+      "position": 11,
+      "source_name": "CURRENT INTEREST RATE",
+      "canonical_name": "current_interest_rate",
+      "description": "Current mortgage note rate after any loan modifications.",
+      "source_type": "Numeric Literal Decimal",
+      "target_type": "decimal",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": [
+        "Percent rate"
+      ],
+      "date_format": null,
+      "category": "servicing"
+    },
+    {
+      "position": 12,
+      "source_name": "CURRENT NON-INTEREST BEARING UPB",
+      "canonical_name": "current_non_interest_bearing_upb",
+      "description": "Non-interest-bearing portion of the UPB for the mortgage.",
+      "source_type": "Numeric",
+      "target_type": "decimal",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "date_format": null,
+      "category": "balance"
+    },
+    {
+      "position": 13,
+      "source_name": "DUE DATE OF LAST PAID INSTALLMENT",
+      "canonical_name": "due_date_of_last_paid_installment",
+      "description": "Due date through which scheduled principal and interest has been paid.",
+      "source_type": "Date",
+      "target_type": "string",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": [
+        "YYYYMM"
+      ],
+      "date_format": "YYYYMM",
+      "category": "delinquency"
+    },
+    {
+      "position": 14,
+      "source_name": "MI RECOVERIES",
+      "canonical_name": "mi_recoveries",
+      "description": "Mortgage insurance proceeds received by Freddie Mac in credit loss events.",
+      "source_type": "Numeric Literal Decimal",
+      "target_type": "decimal",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": [
+        "Dollar amount",
+        "Blank=Not Applicable for defect settlement cases"
+      ],
+      "date_format": null,
+      "category": "recovery"
+    },
+    {
+      "position": 15,
+      "source_name": "NET SALE PROCEEDS",
+      "canonical_name": "net_sale_proceeds",
+      "description": "Amount remitted from property disposition or loan sale after allowable selling expenses.",
+      "source_type": "Alpha-numeric Literal Decimal",
+      "target_type": "string",
+      "nullable": true,
+      "missing_codes": [
+        "",
+        "U"
+      ],
+      "valid_values": [
+        "Dollar amount",
+        "U=Unknown",
+        "Blank=Not Applicable for defect settlement cases"
+      ],
+      "date_format": null,
+      "category": "recovery"
+    },
+    {
+      "position": 16,
+      "source_name": "NON MI RECOVERIES",
+      "canonical_name": "non_mi_recoveries",
+      "description": "Non-MI proceeds such as defect, make-whole, hazard insurance, rental, escrow, or miscellaneous credits.",
+      "source_type": "Numeric Literal Decimal",
+      "target_type": "decimal",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": [
+        "Dollar amount",
+        "Blank=Not Applicable for defect settlement cases"
+      ],
+      "date_format": null,
+      "category": "recovery"
+    },
+    {
+      "position": 17,
+      "source_name": "TOTAL EXPENSES",
+      "canonical_name": "total_expenses",
+      "description": "Aggregated allowable expenses related to acquisition, maintenance, or disposition of a property.",
+      "source_type": "Numeric Literal Decimal",
+      "target_type": "decimal",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": [
+        "Dollar amount",
+        "Blank=Not Applicable for defect settlement cases"
+      ],
+      "date_format": null,
+      "category": "loss"
+    },
+    {
+      "position": 18,
+      "source_name": "LEGAL COSTS",
+      "canonical_name": "legal_costs",
+      "description": "Legal costs associated with property sale outside net sale proceeds.",
+      "source_type": "Numeric Literal Decimal",
+      "target_type": "decimal",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "date_format": null,
+      "category": "loss"
+    },
+    {
+      "position": 19,
+      "source_name": "MAINTENANCE AND PRESERVATION COSTS",
+      "canonical_name": "maintenance_and_preservation_costs",
+      "description": "Maintenance, preservation, repair, and REO management costs associated with property disposition.",
+      "source_type": "Numeric Literal Decimal",
+      "target_type": "decimal",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "date_format": null,
+      "category": "loss"
+    },
+    {
+      "position": 20,
+      "source_name": "TAXES AND INSURANCE",
+      "canonical_name": "taxes_and_insurance",
+      "description": "Taxes and insurance owed in connection with property disposition.",
+      "source_type": "Numeric Literal Decimal",
+      "target_type": "decimal",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "date_format": null,
+      "category": "loss"
+    },
+    {
+      "position": 21,
+      "source_name": "MISCELLANEOUS EXPENSES",
+      "canonical_name": "miscellaneous_expenses",
+      "description": "Other disposition-related expenses such as title, administrative, or auction fees.",
+      "source_type": "Numeric Literal Decimal",
+      "target_type": "decimal",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "date_format": null,
+      "category": "loss"
+    },
+    {
+      "position": 22,
+      "source_name": "ACTUAL LOSS",
+      "canonical_name": "actual_loss",
+      "description": "Freddie Mac actual loss for selected zero-balance codes, excluding modification costs.",
+      "source_type": "Numeric Literal Decimal",
+      "target_type": "decimal",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": [
+        "Dollar amount",
+        "Blank under documented not-applicable rules"
+      ],
+      "date_format": null,
+      "category": "loss"
+    },
+    {
+      "position": 23,
+      "source_name": "CUMULATIVE MODIFICATION COSTS",
+      "canonical_name": "cumulative_modification_costs",
+      "description": "Cumulative modification costs calculated after rate modification, UPB forbearance, or payment deferral events.",
+      "source_type": "Numeric Literal Decimal",
+      "target_type": "decimal",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "date_format": null,
+      "category": "modification"
+    },
+    {
+      "position": 24,
+      "source_name": "INTEREST RATE STEP INDICATOR",
+      "canonical_name": "interest_rate_step_indicator",
+      "description": "Indicates whether the most recent modification includes a step rate.",
+      "source_type": "Alpha",
+      "target_type": "string",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": {
+        "Y": "Step Mod",
+        "N": "Non-Step Mod",
+        "": "Loan not modified"
+      },
+      "date_format": null,
+      "category": "modification"
+    },
+    {
+      "position": 25,
+      "source_name": "PAYMENT DEFERRAL FLAG",
+      "canonical_name": "payment_deferral_flag",
+      "description": "Indicates payment deferral in current or prior period.",
+      "source_type": "Alpha",
+      "target_type": "string",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": {
+        "Y": "Current Period",
+        "P": "Prior Period",
+        "": "Not Payment Deferral"
+      },
+      "date_format": null,
+      "category": "modification"
+    },
+    {
+      "position": 26,
+      "source_name": "ESTIMATED LOAN TO VALUE",
+      "canonical_name": "estimated_loan_to_value",
+      "description": "Current LTV estimate from Freddie Mac AVM.",
+      "source_type": "Numeric Literal",
+      "target_type": "integer",
+      "nullable": true,
+      "missing_codes": [
+        "",
+        "999"
+      ],
+      "valid_values": [
+        "1-998",
+        "999=Unknown",
+        "Blank=Data Not Available"
+      ],
+      "date_format": null,
+      "category": "collateral",
+      "availability": "Only populated for April 2017 and later periods."
+    },
+    {
+      "position": 27,
+      "source_name": "ZERO BALANCE REMOVAL UPB",
+      "canonical_name": "zero_balance_removal_upb",
+      "description": "Total UPB immediately before zero-balance code application.",
+      "source_type": "Numeric Literal Decimal",
+      "target_type": "decimal",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "date_format": null,
+      "category": "balance"
+    },
+    {
+      "position": 28,
+      "source_name": "DELINQUENT ACCRUED INTEREST",
+      "canonical_name": "delinquent_accrued_interest",
+      "description": "Delinquent interest owed at default for selected zero-balance codes.",
+      "source_type": "Numeric Literal Decimal",
+      "target_type": "decimal",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": [
+        "Dollar amount",
+        "Populated for zero-balance codes 02,03,09,15"
+      ],
+      "date_format": null,
+      "category": "loss"
+    },
+    {
+      "position": 29,
+      "source_name": "DELINQUENCY DUE TO DISASTER",
+      "canonical_name": "delinquency_due_to_disaster",
+      "description": "Servicer-reported disaster-related hardship flag.",
+      "source_type": "Alpha",
+      "target_type": "string",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": {
+        "Y": "Delinquency Due to Disaster",
+        "": "Not Delinquency Due to Disaster"
+      },
+      "date_format": null,
+      "category": "delinquency",
+      "availability": "Only populated for January 2014 and later periods."
+    },
+    {
+      "position": 30,
+      "source_name": "BORROWER ASSISTANCE STATUS CODE",
+      "canonical_name": "borrower_assistance_status_code",
+      "description": "Temporary assistance plan or workout status code regardless of delinquency status.",
+      "source_type": "Alpha",
+      "target_type": "string",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": {
+        "F": "Forbearance",
+        "R": "Repayment",
+        "T": "Trial Period",
+        "": "No workout plan or not applicable"
+      },
+      "date_format": null,
+      "category": "servicing",
+      "availability": "Only populated for January 2014 and later periods."
+    },
+    {
+      "position": 31,
+      "source_name": "CURRENT PERIOD MODIFICATION COSTS",
+      "canonical_name": "current_period_modification_costs",
+      "description": "Current-period modification costs calculated for rate modification, principal forbearance, or payment deferral.",
+      "source_type": "Numeric Literal Decimal",
+      "target_type": "decimal",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "date_format": null,
+      "category": "modification"
+    },
+    {
+      "position": 32,
+      "source_name": "CURRENT INTEREST BEARING UPB",
+      "canonical_name": "current_interest_bearing_upb",
+      "description": "Current interest-bearing UPB of the modified mortgage.",
+      "source_type": "Numeric Literal Decimal",
+      "target_type": "decimal",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "date_format": null,
+      "category": "balance"
+    },
+    {
+      "position": 33,
+      "source_name": "MORTGAGE INSURANCE CANCELLATION INDICATOR",
+      "canonical_name": "mortgage_insurance_cancellation_indicator",
+      "description": "Indicates whether mortgage insurance has been reported as cancelled after Freddie Mac's purchase.",
+      "source_type": "Alpha-numeric",
+      "target_type": "string",
+      "nullable": false,
+      "missing_codes": [
+        "7",
+        "9"
+      ],
+      "valid_values": {
+        "Y": "Canceled",
+        "N": "Not Canceled",
+        "7": "Not Applicable",
+        "9": "Not Disclosed"
+      },
+      "date_format": null,
+      "category": "servicing"
+    },
+    {
+      "position": 34,
+      "source_name": "SERVICER NAME",
+      "canonical_name": "servicer_name",
+      "description": "Servicer of record as of the last period for which loan activity is reported, subject to disclosure grouping.",
+      "source_type": "Alpha-numeric",
+      "target_type": "string",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": [
+        "Servicer name",
+        "OTHER or grouped disclosure label"
+      ],
+      "date_format": null,
+      "category": "servicing"
+    },
+    {
+      "position": 35,
+      "source_name": "BANKRUPTCY CRAMDOWN COSTS",
+      "canonical_name": "bankruptcy_cramdown_costs",
+      "description": "Bankruptcy cramdown costs disclosed in the Release 47 layout.",
+      "source_type": "Numeric Literal Decimal",
+      "target_type": "decimal",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "date_format": null,
+      "category": "loss"
+    }
+  ]
+}

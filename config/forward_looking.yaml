@@ -1,0 +1,6 @@
+forward_looking:
+  status: planned
+  methods:
+    - macro_scenarios
+    - vasicek_adjustment
+

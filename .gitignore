@@ -1,0 +1,89 @@
+# Python environments
+.venv/
+venv/
+env/
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+*.p12
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.log
+
+# MLflow and generated outputs
+mlruns/
+mlartifacts/
+
+# Generated models and artifacts
+models/*
+!models/.gitkeep
+artifacts/*
+!artifacts/.gitkeep
+reports/*
+!reports/.gitkeep
+
+# Data zones and large data files
+data/download/
+data/raw/*
+data/bronze/*
+data/silver/*
+data/gold/*
+!data/raw/.gitkeep
+!data/bronze/.gitkeep
+!data/silver/.gitkeep
+!data/gold/.gitkeep
+!data/README.md
+
+# Freddie Mac and large source data
+sample_*.zip
+sample_orig_*.txt
+sample_perf_*.txt
+historical_data*.zip
+*.zip
+*.parquet
+*.feather
+*.orc
+*.avro
+*.csv
+*.tsv
+*.txt
+
+# Keep documentation and configuration versionable.
+!docs/**/*.md
+!docs/source_schema_inventory.csv
+!config/**/*.yaml
+!tests/fixtures/**/*.csv
+!tests/fixtures/**/*.txt

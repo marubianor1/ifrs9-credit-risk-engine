@@ -1,0 +1,575 @@
+{
+  "schema_id": "freddie_origination_v1",
+  "dataset": "origination",
+  "source": "Freddie Mac Single-Family Loan-Level Dataset sample archives",
+  "delimiter": "|",
+  "header": false,
+  "version": "v1",
+  "expected_column_count": 31,
+  "guide_reference": "Freddie Mac Release 47 / July 2026 disclosure layout and local sample validation",
+  "notes": [
+    "Release 47 / July 2026 physical layout observed in sample_2012.zip through sample_2026.zip with 100 sampled rows per file.",
+    "Servicer Name and MI Cancellation Indicator are not origination fields in this layout.",
+    "Position 31 is VantageScore 4.0; sentinel 9999 is observed in local samples.",
+    "Historical population availability may vary even when the physical column is present."
+  ],
+  "columns": [
+    {
+      "position": 1,
+      "source_name": "CREDIT SCORE",
+      "canonical_name": "credit_score",
+      "description": "Borrower credit score known at acquisition and generally used to originate the mortgage.",
+      "source_type": "Numeric",
+      "target_type": "integer",
+      "nullable": false,
+      "missing_codes": [
+        "9999"
+      ],
+      "valid_values": [
+        "300-850",
+        "9999=Not Available"
+      ],
+      "date_format": null,
+      "category": "borrower"
+    },
+    {
+      "position": 2,
+      "source_name": "FIRST PAYMENT DATE",
+      "canonical_name": "first_payment_date",
+      "description": "First scheduled mortgage payment due date under the note terms.",
+      "source_type": "Date",
+      "target_type": "string",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": [
+        "YYYYMM"
+      ],
+      "date_format": "YYYYMM",
+      "category": "date"
+    },
+    {
+      "position": 3,
+      "source_name": "FIRST TIME HOMEBUYER FLAG",
+      "canonical_name": "first_time_homebuyer_flag",
+      "description": "Indicates whether at least one borrower is a first-time homebuyer under the guide definition.",
+      "source_type": "Alpha",
+      "target_type": "string",
+      "nullable": false,
+      "missing_codes": [
+        "9"
+      ],
+      "valid_values": {
+        "Y": "Yes",
+        "N": "No",
+        "9": "Not Available or Not Applicable"
+      },
+      "date_format": null,
+      "category": "borrower"
+    },
+    {
+      "position": 4,
+      "source_name": "MATURITY DATE",
+      "canonical_name": "maturity_date",
+      "description": "Scheduled final monthly payment date as stated on the mortgage note or applicable converted or modified terms at delivery.",
+      "source_type": "Date",
+      "target_type": "string",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": [
+        "YYYYMM"
+      ],
+      "date_format": "YYYYMM",
+      "category": "date"
+    },
+    {
+      "position": 5,
+      "source_name": "METROPOLITAN STATISTICAL AREA OR METROPOLITAN DIVISION",
+      "canonical_name": "metropolitan_statistical_area",
+      "description": "Five-digit MSA or Metropolitan Division code for the property location when applicable.",
+      "source_type": "Numeric",
+      "target_type": "string",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": [
+        "Five-digit MSA or Metropolitan Division code",
+        "Blank=not in an MSA/Division or unknown"
+      ],
+      "date_format": null,
+      "category": "collateral"
+    },
+    {
+      "position": 6,
+      "source_name": "MORTGAGE INSURANCE PERCENTAGE",
+      "canonical_name": "mortgage_insurance_percentage",
+      "description": "Primary mortgage insurance loss coverage percentage at Freddie Mac purchase.",
+      "source_type": "Numeric",
+      "target_type": "integer",
+      "nullable": false,
+      "missing_codes": [
+        "999"
+      ],
+      "valid_values": [
+        "0=No MI",
+        "1-55=MI coverage percentage",
+        "999=Not Available"
+      ],
+      "date_format": null,
+      "category": "collateral"
+    },
+    {
+      "position": 7,
+      "source_name": "NUMBER OF UNITS",
+      "canonical_name": "number_of_units",
+      "description": "Number of property units securing the mortgage.",
+      "source_type": "Numeric",
+      "target_type": "integer",
+      "nullable": false,
+      "missing_codes": [
+        "99"
+      ],
+      "valid_values": {
+        "1": "one-unit",
+        "2": "two-unit",
+        "3": "three-unit",
+        "4": "four-unit",
+        "99": "Not Available"
+      },
+      "date_format": null,
+      "category": "collateral"
+    },
+    {
+      "position": 8,
+      "source_name": "OCCUPANCY STATUS",
+      "canonical_name": "occupancy_status",
+      "description": "Occupancy type for the mortgaged property.",
+      "source_type": "Alpha",
+      "target_type": "string",
+      "nullable": false,
+      "missing_codes": [
+        "9"
+      ],
+      "valid_values": {
+        "P": "Primary Residence",
+        "I": "Investment Property",
+        "S": "Second Home",
+        "9": "Not Available"
+      },
+      "date_format": null,
+      "category": "collateral"
+    },
+    {
+      "position": 9,
+      "source_name": "ORIGINAL COMBINED LOAN-TO-VALUE",
+      "canonical_name": "original_combined_loan_to_value",
+      "description": "Original combined loan-to-value ratio including disclosed secondary financing where applicable.",
+      "source_type": "Numeric",
+      "target_type": "integer",
+      "nullable": false,
+      "missing_codes": [
+        "999"
+      ],
+      "valid_values": [
+        "2018Q1 and prior: 6-200 or 999",
+        "2018Q2 and later: 1-998 or 999",
+        "HARP: 1-998 or 999"
+      ],
+      "date_format": null,
+      "category": "origination"
+    },
+    {
+      "position": 10,
+      "source_name": "ORIGINAL DEBT-TO-INCOME RATIO",
+      "canonical_name": "original_debt_to_income_ratio",
+      "description": "Debt-to-income ratio used in underwriting, subject to guide masking rules.",
+      "source_type": "Numeric",
+      "target_type": "integer",
+      "nullable": false,
+      "missing_codes": [
+        "999"
+      ],
+      "valid_values": [
+        "0<DTI<=65",
+        "999=Not Available"
+      ],
+      "date_format": null,
+      "category": "borrower"
+    },
+    {
+      "position": 11,
+      "source_name": "ORIGINAL UPB",
+      "canonical_name": "original_upb",
+      "description": "Unpaid principal balance on the note date, rounded to the nearest 1000.",
+      "source_type": "Numeric",
+      "target_type": "decimal",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": [
+        "Dollar amount rounded to nearest 1000"
+      ],
+      "date_format": null,
+      "category": "balance"
+    },
+    {
+      "position": 12,
+      "source_name": "ORIGINAL LOAN-TO-VALUE",
+      "canonical_name": "original_loan_to_value",
+      "description": "Original loan-to-value ratio based on original loan amount and property value rules.",
+      "source_type": "Numeric",
+      "target_type": "integer",
+      "nullable": false,
+      "missing_codes": [
+        "999"
+      ],
+      "valid_values": [
+        "2018Q1 and prior: 6-105 or 999",
+        "2018Q2 and later: 1-998 or 999",
+        "HARP: 1-998 or 999"
+      ],
+      "date_format": null,
+      "category": "origination"
+    },
+    {
+      "position": 13,
+      "source_name": "ORIGINAL INTEREST RATE",
+      "canonical_name": "original_interest_rate",
+      "description": "Interest rate stated on the note at origination.",
+      "source_type": "Numeric Literal Decimal",
+      "target_type": "decimal",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": [
+        "Percent rate"
+      ],
+      "date_format": null,
+      "category": "origination"
+    },
+    {
+      "position": 14,
+      "source_name": "CHANNEL",
+      "canonical_name": "channel",
+      "description": "Origination channel or third-party origination designation.",
+      "source_type": "Alpha",
+      "target_type": "string",
+      "nullable": false,
+      "missing_codes": [
+        "9"
+      ],
+      "valid_values": {
+        "R": "Retail",
+        "B": "Broker",
+        "C": "Correspondent",
+        "T": "TPO Not Specified",
+        "9": "Not Available"
+      },
+      "date_format": null,
+      "category": "origination"
+    },
+    {
+      "position": 15,
+      "source_name": "PREPAYMENT PENALTY MORTGAGE FLAG",
+      "canonical_name": "prepayment_penalty_mortgage_flag",
+      "description": "Indicates whether the mortgage has or had a prepayment penalty obligation.",
+      "source_type": "Alpha",
+      "target_type": "string",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": {
+        "Y": "PPM",
+        "N": "Not PPM"
+      },
+      "date_format": null,
+      "category": "origination"
+    },
+    {
+      "position": 16,
+      "source_name": "AMORTIZATION TYPE",
+      "canonical_name": "amortization_type",
+      "description": "Mortgage product amortization type.",
+      "source_type": "Alpha",
+      "target_type": "string",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": {
+        "FRM": "Fixed Rate Mortgage",
+        "ARM": "Adjustable Rate Mortgage"
+      },
+      "date_format": null,
+      "category": "origination"
+    },
+    {
+      "position": 17,
+      "source_name": "PROPERTY STATE",
+      "canonical_name": "property_state",
+      "description": "Two-letter state or territory abbreviation for the property location.",
+      "source_type": "Alpha",
+      "target_type": "string",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": [
+        "US state or territory abbreviation"
+      ],
+      "date_format": null,
+      "category": "collateral"
+    },
+    {
+      "position": 18,
+      "source_name": "PROPERTY TYPE",
+      "canonical_name": "property_type",
+      "description": "Property type securing the mortgage.",
+      "source_type": "Alpha",
+      "target_type": "string",
+      "nullable": false,
+      "missing_codes": [
+        "99"
+      ],
+      "valid_values": {
+        "CO": "Condo",
+        "PU": "PUD",
+        "MH": "Manufactured Housing",
+        "SF": "Single-Family",
+        "CP": "Co-op",
+        "99": "Not Available"
+      },
+      "date_format": null,
+      "category": "collateral"
+    },
+    {
+      "position": 19,
+      "source_name": "POSTAL CODE",
+      "canonical_name": "postal_code",
+      "description": "Masked postal code where the last two digits are replaced with zeroes.",
+      "source_type": "Numeric",
+      "target_type": "string",
+      "nullable": false,
+      "missing_codes": [
+        "00"
+      ],
+      "valid_values": [
+        "###00",
+        "00=Unknown"
+      ],
+      "date_format": null,
+      "category": "collateral"
+    },
+    {
+      "position": 20,
+      "source_name": "LOAN SEQUENCE NUMBER",
+      "canonical_name": "loan_id",
+      "description": "Unique loan identifier assigned by Freddie Mac for the dataset.",
+      "source_type": "Alpha-numeric",
+      "target_type": "string",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": [
+        "PYYQnXXXXXXX"
+      ],
+      "date_format": null,
+      "category": "identifier"
+    },
+    {
+      "position": 21,
+      "source_name": "LOAN PURPOSE",
+      "canonical_name": "loan_purpose",
+      "description": "Purchase or refinance purpose classification.",
+      "source_type": "Alpha",
+      "target_type": "string",
+      "nullable": false,
+      "missing_codes": [
+        "9"
+      ],
+      "valid_values": {
+        "P": "Purchase",
+        "C": "Refinance - Cash Out",
+        "N": "Refinance - No Cash Out",
+        "R": "Refinance - Not Specified",
+        "9": "Not Available"
+      },
+      "date_format": null,
+      "category": "origination"
+    },
+    {
+      "position": 22,
+      "source_name": "ORIGINAL LOAN TERM",
+      "canonical_name": "original_loan_term",
+      "description": "Scheduled number of monthly payments based on first payment date and maturity date.",
+      "source_type": "Numeric",
+      "target_type": "integer",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": [
+        "Months"
+      ],
+      "date_format": null,
+      "category": "origination"
+    },
+    {
+      "position": 23,
+      "source_name": "NUMBER OF BORROWERS",
+      "canonical_name": "number_of_borrowers",
+      "description": "Number of borrowers obligated on the note, with historical changes in granularity.",
+      "source_type": "Numeric",
+      "target_type": "integer",
+      "nullable": false,
+      "missing_codes": [
+        "99"
+      ],
+      "valid_values": [
+        "2018Q1 and prior: 01,02,99",
+        "2018Q2 and later: 01-10,99"
+      ],
+      "date_format": null,
+      "category": "borrower"
+    },
+    {
+      "position": 24,
+      "source_name": "SELLER NAME",
+      "canonical_name": "seller_name",
+      "description": "Seller at acquisition, disclosed by name when disclosure thresholds are met and otherwise grouped.",
+      "source_type": "Alpha-numeric",
+      "target_type": "string",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": [
+        "Seller name",
+        "Other Sellers or equivalent grouped label"
+      ],
+      "date_format": null,
+      "category": "origination"
+    },
+    {
+      "position": 25,
+      "source_name": "SUPER CONFORMING FLAG",
+      "canonical_name": "super_conforming_flag",
+      "description": "Indicates super conforming mortgages under guide timing rules.",
+      "source_type": "Alpha",
+      "target_type": "string",
+      "nullable": true,
+      "missing_codes": [
+        "",
+        " "
+      ],
+      "valid_values": {
+        "Y": "Yes",
+        "": "Not Super Conforming"
+      },
+      "date_format": null,
+      "category": "origination"
+    },
+    {
+      "position": 26,
+      "source_name": "PRE-HARP LOAN SEQUENCE NUMBER",
+      "canonical_name": "pre_harp_loan_id",
+      "description": "Loan sequence number for the pre-HARP loan refinanced by a HARP loan; blank otherwise.",
+      "source_type": "Alpha-numeric",
+      "target_type": "string",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": [
+        "PYYQnXXXXXXX",
+        "Blank when not applicable"
+      ],
+      "date_format": null,
+      "category": "identifier"
+    },
+    {
+      "position": 27,
+      "source_name": "SPECIAL ELIGIBILITY PROGRAM",
+      "canonical_name": "special_eligibility_program",
+      "description": "Freddie Mac program indicator where applicable.",
+      "source_type": "Alpha-numeric",
+      "target_type": "string",
+      "nullable": true,
+      "missing_codes": [
+        ""
+      ],
+      "valid_values": {
+        "H": "Home Possible",
+        "F": "HFA Advantage",
+        "R": "Refi Possible"
+      },
+      "date_format": null,
+      "category": "origination"
+    },
+    {
+      "position": 28,
+      "source_name": "HARP INDICATOR",
+      "canonical_name": "harp_indicator",
+      "description": "Indicates whether the loan is part of Freddie Mac HARP / Relief Refinance population.",
+      "source_type": "Alpha",
+      "target_type": "string",
+      "nullable": true,
+      "missing_codes": [
+        "",
+        " "
+      ],
+      "valid_values": {
+        "Y": "HARP loan",
+        "N": "Non-HARP loan",
+        "": "Non-HARP loan"
+      },
+      "date_format": null,
+      "category": "origination"
+    },
+    {
+      "position": 29,
+      "source_name": "PROPERTY VALUATION METHOD",
+      "canonical_name": "property_valuation_method",
+      "description": "Property appraisal or valuation method indicator.",
+      "source_type": "Numeric",
+      "target_type": "string",
+      "nullable": true,
+      "missing_codes": [
+        "7",
+        ""
+      ],
+      "valid_values": {
+        "1": "Appraisal Waiver (ACE)",
+        "2": "Appraisal",
+        "3": "Other",
+        "4": "ACE+ PDR",
+        "7": "Not Available"
+      },
+      "date_format": null,
+      "category": "collateral",
+      "availability": "Populated for loans originated on or after 2017-01; ACE+ PDR effective for loans originated on or after 2022-07-17."
+    },
+    {
+      "position": 30,
+      "source_name": "INTEREST ONLY INDICATOR",
+      "canonical_name": "interest_only_indicator",
+      "description": "Indicates whether the loan requires interest-only payments for a specified period.",
+      "source_type": "Alpha",
+      "target_type": "string",
+      "nullable": false,
+      "missing_codes": [],
+      "valid_values": {
+        "Y": "Yes",
+        "N": "No"
+      },
+      "date_format": null,
+      "category": "origination"
+    },
+    {
+      "position": 31,
+      "source_name": "VANTAGESCORE 4.0",
+      "canonical_name": "vantagescore_4",
+      "description": "VantageScore 4.0 credit score disclosed in the Release 47 layout.",
+      "source_type": "Numeric",
+      "target_type": "integer",
+      "nullable": false,
+      "missing_codes": [
+        "9999"
+      ],
+      "valid_values": [
+        "300-850 where populated",
+        "9999=Not Available"
+      ],
+      "date_format": null,
+      "category": "borrower"
+    }
+  ]
+}

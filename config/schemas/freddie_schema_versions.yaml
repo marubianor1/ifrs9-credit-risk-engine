@@ -1,0 +1,11 @@
+schema_versions:
+  - dataset: origination
+    schema_id: freddie_origination_v1
+    year_start: 2012
+    year_end: 2026
+    observed_column_count: 31
+  - dataset: performance
+    schema_id: freddie_performance_v1
+    year_start: 2012
+    year_end: 2026
+    observed_column_count: 35

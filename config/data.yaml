@@ -1,0 +1,18 @@
+paths:
+  raw_dir: data/raw
+  bronze_dir: data/bronze
+  silver_dir: data/silver
+  gold_dir: data/gold
+  artifacts_dir: artifacts
+  reports_dir: reports
+  models_dir: models
+
+source_data:
+  freddie_mac:
+    source_dir: data/download
+    local_download_dir: data/download
+    dictionary_dir: data/download/dictionary
+    origination_pattern: sample_orig_{year}.txt
+    performance_pattern: sample_perf_{year}.txt
+    archive_pattern: sample_{year}.zip
+    field_separator: "|"

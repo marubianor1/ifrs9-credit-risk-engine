@@ -1,0 +1,6 @@
+pd:
+  status: planned
+  horizons:
+    - 12m
+    - lifetime
+

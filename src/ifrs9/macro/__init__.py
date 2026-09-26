@@ -1,0 +1,2 @@
+"""Macroeconomic scenario package."""
+
