@@ -88,6 +88,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Overwrite existing development sample output",
     )
 
+    scorecard = subparsers.add_parser("train-scorecard", help="Train logistic scorecard")
+    scorecard.add_argument("--config", type=Path, help="Path to scorecard YAML")
+    scorecard.add_argument(
+        "--population",
+        choices=["application", "behavioural"],
+        required=True,
+        help="Scorecard population to train",
+    )
+    scorecard.add_argument(
+        "--snapshot-frequency",
+        choices=["monthly", "quarter_end", "year_end"],
+        help="Override configured snapshot frequency",
+    )
+    scorecard.add_argument(
+        "--sampling-strategy",
+        choices=["none", "random_nondefault", "stratified_nondefault"],
+        help="Override configured sampling strategy",
+    )
+    scorecard.add_argument("--run-id", help="Optional deterministic run ID")
+
     return parser
 
 
@@ -116,6 +136,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             sampling_strategy=args.sampling_strategy,
             population=args.population,
             loan_disjoint=True if args.loan_disjoint else None,
+        )
+        return 0
+    if args.command == "train-scorecard":
+        from ifrs9.models.scorecard.runner import run_scorecard
+
+        run_scorecard(
+            config_path=args.config,
+            population=args.population,
+            snapshot_frequency=args.snapshot_frequency,
+            sampling_strategy=args.sampling_strategy,
+            run_id=args.run_id,
         )
         return 0
 

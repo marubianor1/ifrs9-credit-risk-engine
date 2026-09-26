@@ -1,0 +1,1 @@
+"""Traditional logistic scorecard framework."""

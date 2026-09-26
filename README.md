@@ -4,11 +4,11 @@ Professional portfolio project to build a reproducible IFRS 9 credit risk and ex
 
 The intended end-to-end architecture covers data ingestion, data quality, default definition, scoring, rating, 12-month and lifetime PD, EAD, LGD, SICR, staging, forward-looking macroeconomic adjustment, scenario weighting, ECL, stress testing, validation, monitoring, reporting, and an application layer.
 
-Current status: **Development Design — Temporal Sample Factory**.
+Current status: **Modelling — Logistic Scorecard**.
 
-The Source to Bronze ingestion pipeline, Bronze to Silver standardization pipeline, Gold point-in-time loan-month mart, default definition, PD target factory, and temporal development-sample factory have been implemented for the local Freddie Mac sample archives. No PD, LGD, EAD, SICR, staging, or IFRS 9 estimates have been implemented yet.
+The Source to Bronze ingestion pipeline, Bronze to Silver standardization pipeline, Gold point-in-time loan-month mart, default definition, PD target factory, temporal development-sample factory, and traditional logistic scorecard experiment framework have been implemented for the local Freddie Mac sample archives. No IFRS 9 PD calibration, LGD, EAD, SICR, staging, or IFRS 9 estimates have been implemented yet.
 
-The current project layer contains a lightweight Freddie Mac source inventory, schema drift notes, version-controlled Release 47 source and Silver schemas, a reproducible Bronze Parquet ingestion pipeline, a Silver standardization pipeline, a Gold analytical mart with leakage-aware feature registry selectors, compact default/PD target tables, and temporal development metadata for future model experiments.
+The current project layer contains a lightweight Freddie Mac source inventory, schema drift notes, version-controlled Release 47 source and Silver schemas, a reproducible Bronze Parquet ingestion pipeline, a Silver standardization pipeline, a Gold analytical mart with leakage-aware feature registry selectors, compact default/PD target tables, temporal development metadata, and logistic WOE scorecard runs for application and behavioural populations.
 
 ## Dataset
 
@@ -79,6 +79,13 @@ Build temporal development sample metadata:
 
 ```bash
 poetry run ifrs9 build-development-sample
+```
+
+Train logistic scorecards:
+
+```bash
+poetry run ifrs9 train-scorecard --population behavioural
+poetry run ifrs9 train-scorecard --population application
 ```
 
 Run quality checks after the environment is installed:

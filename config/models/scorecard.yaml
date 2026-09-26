@@ -1,0 +1,33 @@
+scorecard:
+  model_type: logistic_scorecard
+  population: behavioural
+  snapshot_frequency: quarter_end
+  sampling_strategy: none
+  target: default_next_12m
+  train:
+    start: 2012-01-01
+    end: 2018-12-01
+  validation:
+    start: 2019-01-01
+    end: 2021-12-01
+  oot:
+    start: 2022-01-01
+    end: 2025-03-01
+  binning:
+    max_bins: 10
+    min_bin_pct: 0.02
+    enforce_monotonic: true
+    rare_category_pct: 0.01
+    smoothing: 0.5
+    suspicious_iv_threshold: 0.5
+  score_scaling:
+    base_score: 600
+    pdo: 50
+    base_odds_good_to_bad: 20
+    band_count: 10
+  metrics:
+    confusion_cutoff: 0.05
+    deciles: 10
+  run:
+    artifact_root: artifacts/models/scorecard
+    model_root: models/scorecard
