@@ -1,0 +1,142 @@
+version: v1
+leakage_classes:
+  - SAFE_ORIGINATION
+  - SAFE_AS_OF_DATE
+  - OUTCOME_RESTRICTED
+  - TECHNICAL_ONLY
+features:
+  - name: original_credit_score
+    description: Credit score disclosed at origination/acquisition.
+    source: silver_origination.credit_score
+    category: borrower
+    availability: ORIGINATION
+    transformation: renamed from Silver credit_score
+    window: none
+    allowed_uses: [application_scoring, pd, reporting]
+    leakage_risk: SAFE_ORIGINATION
+  - name: original_dti
+    description: Original debt-to-income ratio.
+    source: silver_origination.original_debt_to_income_ratio
+    category: borrower
+    availability: ORIGINATION
+    transformation: renamed from Silver
+    window: none
+    allowed_uses: [application_scoring, pd, reporting]
+    leakage_risk: SAFE_ORIGINATION
+  - name: original_ltv
+    description: Original loan-to-value ratio.
+    source: silver_origination.original_loan_to_value
+    category: collateral
+    availability: ORIGINATION
+    transformation: renamed from Silver
+    window: none
+    allowed_uses: [application_scoring, pd, lgd_predictor, reporting]
+    leakage_risk: SAFE_ORIGINATION
+  - name: original_cltv
+    description: Original combined loan-to-value ratio.
+    source: silver_origination.original_combined_loan_to_value
+    category: collateral
+    availability: ORIGINATION
+    transformation: renamed from Silver
+    window: none
+    allowed_uses: [application_scoring, pd, lgd_predictor, reporting]
+    leakage_risk: SAFE_ORIGINATION
+  - name: original_upb
+    description: Original unpaid principal balance.
+    source: silver_origination.original_upb
+    category: balance
+    availability: ORIGINATION
+    transformation: direct
+    window: none
+    allowed_uses: [application_scoring, pd, ead, reporting]
+    leakage_risk: SAFE_ORIGINATION
+  - name: original_interest_rate
+    description: Original note interest rate.
+    source: silver_origination.original_interest_rate
+    category: rate
+    availability: ORIGINATION
+    transformation: direct
+    window: none
+    allowed_uses: [application_scoring, pd, ead, reporting]
+    leakage_risk: SAFE_ORIGINATION
+  - name: current_actual_upb
+    description: Current actual unpaid principal balance as of reporting month.
+    source: silver_performance.current_actual_upb
+    category: balance
+    availability: CURRENT_PERIOD
+    transformation: direct
+    window: current month
+    allowed_uses: [behavioural_scoring, pd, ead, reporting]
+    leakage_risk: SAFE_AS_OF_DATE
+  - name: delinquency_months
+    description: Source-semantic numeric delinquency month count.
+    source: silver_performance.delinquency_months
+    category: delinquency
+    availability: CURRENT_PERIOD
+    transformation: numeric Freddie delinquency status only
+    window: current month
+    allowed_uses: [behavioural_scoring, pd, sicr, reporting]
+    leakage_risk: SAFE_AS_OF_DATE
+  - name: max_delinquency_months_to_date
+    description: Maximum reported numeric delinquency months observed through as-of date.
+    source: gold_loan_month.delinquency_months
+    category: delinquency
+    availability: HISTORICAL_TO_DATE
+    transformation: cumulative max through t
+    window: history through current row
+    allowed_uses: [behavioural_scoring, pd, sicr, reporting]
+    leakage_risk: SAFE_AS_OF_DATE
+  - name: months_since_last_delinquency
+    description: Calendar months since the latest delinquent observation at or before t.
+    source: gold_loan_month.delinquency_months
+    category: delinquency
+    availability: HISTORICAL_TO_DATE
+    transformation: date_diff from latest delinquent period through t
+    window: history through current row
+    allowed_uses: [behavioural_scoring, pd, sicr, reporting]
+    leakage_risk: SAFE_AS_OF_DATE
+  - name: current_upb_to_original_upb
+    description: Current actual UPB divided by original UPB.
+    source: silver performance and static origination
+    category: balance
+    availability: CURRENT_PERIOD
+    transformation: current_actual_upb / original_upb when denominator is positive
+    window: current month
+    allowed_uses: [behavioural_scoring, pd, ead, reporting]
+    leakage_risk: SAFE_AS_OF_DATE
+  - name: actual_loss
+    description: Freddie Mac actual loss amount, disclosed for relevant terminal outcomes.
+    source: silver_performance.actual_loss
+    category: loss
+    availability: TERMINAL_EVENT
+    transformation: direct
+    window: terminal event
+    allowed_uses: [lgd_outcome, reporting]
+    leakage_risk: OUTCOME_RESTRICTED
+  - name: net_sale_proceeds
+    description: Net sale proceeds for property disposition or loan sale.
+    source: silver_performance.net_sale_proceeds
+    category: recovery
+    availability: TERMINAL_EVENT
+    transformation: direct
+    window: terminal event
+    allowed_uses: [lgd_outcome, reporting]
+    leakage_risk: OUTCOME_RESTRICTED
+  - name: total_expenses
+    description: Total disposition expenses.
+    source: silver_performance.total_expenses
+    category: loss
+    availability: TERMINAL_EVENT
+    transformation: direct
+    window: terminal event
+    allowed_uses: [lgd_outcome, reporting]
+    leakage_risk: OUTCOME_RESTRICTED
+  - name: _gold_processed_at
+    description: Technical Gold processing timestamp.
+    source: gold pipeline
+    category: technical
+    availability: TECHNICAL
+    transformation: generated
+    window: none
+    allowed_uses: [reporting]
+    leakage_risk: TECHNICAL_ONLY

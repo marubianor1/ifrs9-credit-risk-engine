@@ -6,6 +6,7 @@ import argparse
 from collections.abc import Sequence
 
 from ifrs9.ingestion.freddie import run_freddie_ingestion
+from ifrs9.mart.loan_month import run_point_in_time_mart_build
 from ifrs9.transformations.freddie_silver import run_freddie_silver_build
 
 
@@ -34,6 +35,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Overwrite existing successful Silver partitions",
     )
 
+    mart = subparsers.add_parser("build-mart", help="Build point-in-time Gold mart")
+    mart_selection = mart.add_mutually_exclusive_group(required=True)
+    mart_selection.add_argument("--year", type=int, help="Single Freddie Mac year to build")
+    mart_selection.add_argument("--all", action="store_true", help="Build all Silver years")
+    mart.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing successful Gold partitions",
+    )
+
     return parser
 
 
@@ -47,6 +58,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     if args.command == "build-silver":
         run_freddie_silver_build(year=args.year, all_years=args.all, force=args.force)
+        return 0
+    if args.command == "build-mart":
+        run_point_in_time_mart_build(year=args.year, all_years=args.all, force=args.force)
         return 0
 
     parser.error(f"Unsupported command: {args.command}")

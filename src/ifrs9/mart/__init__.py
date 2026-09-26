@@ -1,0 +1,2 @@
+"""Gold analytical mart package."""
+

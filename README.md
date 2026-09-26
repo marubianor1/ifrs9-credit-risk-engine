@@ -4,11 +4,11 @@ Professional portfolio project to build a reproducible IFRS 9 credit risk and ex
 
 The intended end-to-end architecture covers data ingestion, data quality, default definition, scoring, rating, 12-month and lifetime PD, EAD, LGD, SICR, staging, forward-looking macroeconomic adjustment, scenario weighting, ECL, stress testing, validation, monitoring, reporting, and an application layer.
 
-Current status: **Data Foundation — Silver standardized layer**.
+Current status: **Analytical Foundation — Point-in-Time Loan-Month Mart**.
 
-The Source to Bronze ingestion pipeline and Bronze to Silver standardization pipeline have been implemented for the local Freddie Mac sample archives. No modelling features, default definitions, PD, LGD, EAD, SICR, staging, or IFRS 9 estimates have been implemented yet.
+The Source to Bronze ingestion pipeline, Bronze to Silver standardization pipeline, and Gold point-in-time loan-month mart have been implemented for the local Freddie Mac sample archives. No default definitions, targets, PD, LGD, EAD, SICR, staging, or IFRS 9 estimates have been implemented yet.
 
-The current project layer contains a lightweight Freddie Mac source inventory, schema drift notes, version-controlled Release 47 source and Silver schemas, a reproducible Bronze Parquet ingestion pipeline, and a Silver standardization pipeline.
+The current project layer contains a lightweight Freddie Mac source inventory, schema drift notes, version-controlled Release 47 source and Silver schemas, a reproducible Bronze Parquet ingestion pipeline, a Silver standardization pipeline, and a Gold analytical mart with leakage-aware feature registry selectors.
 
 ## Dataset
 
@@ -61,6 +61,12 @@ Build the Silver layer:
 
 ```bash
 poetry run ifrs9 build-silver --all
+```
+
+Build the Gold point-in-time mart:
+
+```bash
+poetry run ifrs9 build-mart --all
 ```
 
 Run quality checks after the environment is installed:
