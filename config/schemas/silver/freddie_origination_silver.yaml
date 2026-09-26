@@ -1,0 +1,651 @@
+{
+  "schema_id": "freddie_origination_silver_v1",
+  "dataset": "origination",
+  "version": "v1",
+  "fields": [
+    {
+      "name": "credit_score",
+      "source_field": "credit_score",
+      "data_type": "integer",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Borrower credit score known at acquisition and generally used to originate the mortgage.",
+      "valid_range": null,
+      "valid_values": [
+        "300-850",
+        "9999=Not Available"
+      ],
+      "unit": null,
+      "business_category": "borrower"
+    },
+    {
+      "name": "first_payment_date",
+      "source_field": "first_payment_date",
+      "data_type": "date",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "First scheduled mortgage payment due date under the note terms.",
+      "valid_range": null,
+      "valid_values": [
+        "YYYYMM"
+      ],
+      "unit": "month",
+      "business_category": "date"
+    },
+    {
+      "name": "first_time_homebuyer_flag",
+      "source_field": "first_time_homebuyer_flag",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Indicates whether at least one borrower is a first-time homebuyer under the guide definition.",
+      "valid_range": null,
+      "valid_values": {
+        "Y": "Yes",
+        "N": "No",
+        "9": "Not Available or Not Applicable"
+      },
+      "unit": null,
+      "business_category": "borrower"
+    },
+    {
+      "name": "maturity_date",
+      "source_field": "maturity_date",
+      "data_type": "date",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Scheduled final monthly payment date as stated on the mortgage note or applicable converted or modified terms at delivery.",
+      "valid_range": null,
+      "valid_values": [
+        "YYYYMM"
+      ],
+      "unit": "month",
+      "business_category": "date"
+    },
+    {
+      "name": "metropolitan_statistical_area",
+      "source_field": "metropolitan_statistical_area",
+      "data_type": "string",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Five-digit MSA or Metropolitan Division code for the property location when applicable.",
+      "valid_range": null,
+      "valid_values": [
+        "Five-digit MSA or Metropolitan Division code",
+        "Blank=not in an MSA/Division or unknown"
+      ],
+      "unit": null,
+      "business_category": "collateral"
+    },
+    {
+      "name": "mortgage_insurance_percentage",
+      "source_field": "mortgage_insurance_percentage",
+      "data_type": "integer",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Primary mortgage insurance loss coverage percentage at Freddie Mac purchase.",
+      "valid_range": null,
+      "valid_values": [
+        "0=No MI",
+        "1-55=MI coverage percentage",
+        "999=Not Available"
+      ],
+      "unit": null,
+      "business_category": "collateral"
+    },
+    {
+      "name": "number_of_units",
+      "source_field": "number_of_units",
+      "data_type": "integer",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Number of property units securing the mortgage.",
+      "valid_range": null,
+      "valid_values": {
+        "1": "one-unit",
+        "2": "two-unit",
+        "3": "three-unit",
+        "4": "four-unit",
+        "99": "Not Available"
+      },
+      "unit": null,
+      "business_category": "collateral"
+    },
+    {
+      "name": "occupancy_status",
+      "source_field": "occupancy_status",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Occupancy type for the mortgaged property.",
+      "valid_range": null,
+      "valid_values": {
+        "P": "Primary Residence",
+        "I": "Investment Property",
+        "S": "Second Home",
+        "9": "Not Available"
+      },
+      "unit": null,
+      "business_category": "collateral"
+    },
+    {
+      "name": "original_combined_loan_to_value",
+      "source_field": "original_combined_loan_to_value",
+      "data_type": "integer",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Original combined loan-to-value ratio including disclosed secondary financing where applicable.",
+      "valid_range": null,
+      "valid_values": [
+        "2018Q1 and prior: 6-200 or 999",
+        "2018Q2 and later: 1-998 or 999",
+        "HARP: 1-998 or 999"
+      ],
+      "unit": null,
+      "business_category": "origination"
+    },
+    {
+      "name": "original_debt_to_income_ratio",
+      "source_field": "original_debt_to_income_ratio",
+      "data_type": "integer",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Debt-to-income ratio used in underwriting, subject to guide masking rules.",
+      "valid_range": null,
+      "valid_values": [
+        "0<DTI<=65",
+        "999=Not Available"
+      ],
+      "unit": null,
+      "business_category": "borrower"
+    },
+    {
+      "name": "original_upb",
+      "source_field": "original_upb",
+      "data_type": "decimal",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Unpaid principal balance on the note date, rounded to the nearest 1000.",
+      "valid_range": null,
+      "valid_values": [
+        "Dollar amount rounded to nearest 1000"
+      ],
+      "unit": null,
+      "business_category": "balance"
+    },
+    {
+      "name": "original_loan_to_value",
+      "source_field": "original_loan_to_value",
+      "data_type": "integer",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Original loan-to-value ratio based on original loan amount and property value rules.",
+      "valid_range": null,
+      "valid_values": [
+        "2018Q1 and prior: 6-105 or 999",
+        "2018Q2 and later: 1-998 or 999",
+        "HARP: 1-998 or 999"
+      ],
+      "unit": null,
+      "business_category": "origination"
+    },
+    {
+      "name": "original_interest_rate",
+      "source_field": "original_interest_rate",
+      "data_type": "decimal",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Interest rate stated on the note at origination.",
+      "valid_range": null,
+      "valid_values": [
+        "Percent rate"
+      ],
+      "unit": null,
+      "business_category": "origination"
+    },
+    {
+      "name": "channel",
+      "source_field": "channel",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Origination channel or third-party origination designation.",
+      "valid_range": null,
+      "valid_values": {
+        "R": "Retail",
+        "B": "Broker",
+        "C": "Correspondent",
+        "T": "TPO Not Specified",
+        "9": "Not Available"
+      },
+      "unit": null,
+      "business_category": "origination"
+    },
+    {
+      "name": "prepayment_penalty_mortgage_flag",
+      "source_field": "prepayment_penalty_mortgage_flag",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Indicates whether the mortgage has or had a prepayment penalty obligation.",
+      "valid_range": null,
+      "valid_values": {
+        "Y": "PPM",
+        "N": "Not PPM"
+      },
+      "unit": null,
+      "business_category": "origination"
+    },
+    {
+      "name": "amortization_type",
+      "source_field": "amortization_type",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Mortgage product amortization type.",
+      "valid_range": null,
+      "valid_values": {
+        "FRM": "Fixed Rate Mortgage",
+        "ARM": "Adjustable Rate Mortgage"
+      },
+      "unit": null,
+      "business_category": "origination"
+    },
+    {
+      "name": "property_state",
+      "source_field": "property_state",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Two-letter state or territory abbreviation for the property location.",
+      "valid_range": null,
+      "valid_values": [
+        "US state or territory abbreviation"
+      ],
+      "unit": null,
+      "business_category": "collateral"
+    },
+    {
+      "name": "property_type",
+      "source_field": "property_type",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Property type securing the mortgage.",
+      "valid_range": null,
+      "valid_values": {
+        "CO": "Condo",
+        "PU": "PUD",
+        "MH": "Manufactured Housing",
+        "SF": "Single-Family",
+        "CP": "Co-op",
+        "99": "Not Available"
+      },
+      "unit": null,
+      "business_category": "collateral"
+    },
+    {
+      "name": "postal_code",
+      "source_field": "postal_code",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Masked postal code where the last two digits are replaced with zeroes.",
+      "valid_range": null,
+      "valid_values": [
+        "###00",
+        "00=Unknown"
+      ],
+      "unit": null,
+      "business_category": "collateral"
+    },
+    {
+      "name": "loan_id",
+      "source_field": "loan_id",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Unique loan identifier assigned by Freddie Mac for the dataset.",
+      "valid_range": null,
+      "valid_values": [
+        "PYYQnXXXXXXX"
+      ],
+      "unit": null,
+      "business_category": "identifier"
+    },
+    {
+      "name": "loan_purpose",
+      "source_field": "loan_purpose",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Purchase or refinance purpose classification.",
+      "valid_range": null,
+      "valid_values": {
+        "P": "Purchase",
+        "C": "Refinance - Cash Out",
+        "N": "Refinance - No Cash Out",
+        "R": "Refinance - Not Specified",
+        "9": "Not Available"
+      },
+      "unit": null,
+      "business_category": "origination"
+    },
+    {
+      "name": "original_loan_term",
+      "source_field": "original_loan_term",
+      "data_type": "integer",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Scheduled number of monthly payments based on first payment date and maturity date.",
+      "valid_range": null,
+      "valid_values": [
+        "Months"
+      ],
+      "unit": null,
+      "business_category": "origination"
+    },
+    {
+      "name": "number_of_borrowers",
+      "source_field": "number_of_borrowers",
+      "data_type": "integer",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Number of borrowers obligated on the note, with historical changes in granularity.",
+      "valid_range": null,
+      "valid_values": [
+        "2018Q1 and prior: 01,02,99",
+        "2018Q2 and later: 01-10,99"
+      ],
+      "unit": null,
+      "business_category": "borrower"
+    },
+    {
+      "name": "seller_name",
+      "source_field": "seller_name",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Seller at acquisition, disclosed by name when disclosure thresholds are met and otherwise grouped.",
+      "valid_range": null,
+      "valid_values": [
+        "Seller name",
+        "Other Sellers or equivalent grouped label"
+      ],
+      "unit": null,
+      "business_category": "origination"
+    },
+    {
+      "name": "super_conforming_flag",
+      "source_field": "super_conforming_flag",
+      "data_type": "string",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Indicates super conforming mortgages under guide timing rules.",
+      "valid_range": null,
+      "valid_values": {
+        "Y": "Yes",
+        "": "Not Super Conforming"
+      },
+      "unit": null,
+      "business_category": "origination"
+    },
+    {
+      "name": "pre_harp_loan_id",
+      "source_field": "pre_harp_loan_id",
+      "data_type": "string",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Loan sequence number for the pre-HARP loan refinanced by a HARP loan; blank otherwise.",
+      "valid_range": null,
+      "valid_values": [
+        "PYYQnXXXXXXX",
+        "Blank when not applicable"
+      ],
+      "unit": null,
+      "business_category": "identifier"
+    },
+    {
+      "name": "special_eligibility_program",
+      "source_field": "special_eligibility_program",
+      "data_type": "string",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Freddie Mac program indicator where applicable.",
+      "valid_range": null,
+      "valid_values": {
+        "H": "Home Possible",
+        "F": "HFA Advantage",
+        "R": "Refi Possible"
+      },
+      "unit": null,
+      "business_category": "origination"
+    },
+    {
+      "name": "harp_indicator",
+      "source_field": "harp_indicator",
+      "data_type": "string",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Indicates whether the loan is part of Freddie Mac HARP / Relief Refinance population.",
+      "valid_range": null,
+      "valid_values": {
+        "Y": "HARP loan",
+        "N": "Non-HARP loan",
+        "": "Non-HARP loan"
+      },
+      "unit": null,
+      "business_category": "origination"
+    },
+    {
+      "name": "property_valuation_method",
+      "source_field": "property_valuation_method",
+      "data_type": "string",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Property appraisal or valuation method indicator.",
+      "valid_range": null,
+      "valid_values": {
+        "1": "Appraisal Waiver (ACE)",
+        "2": "Appraisal",
+        "3": "Other",
+        "4": "ACE+ PDR",
+        "7": "Not Available"
+      },
+      "unit": null,
+      "business_category": "collateral"
+    },
+    {
+      "name": "interest_only_indicator",
+      "source_field": "interest_only_indicator",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Indicates whether the loan requires interest-only payments for a specified period.",
+      "valid_range": null,
+      "valid_values": {
+        "Y": "Yes",
+        "N": "No"
+      },
+      "unit": null,
+      "business_category": "origination"
+    },
+    {
+      "name": "vantagescore_4",
+      "source_field": "vantagescore_4",
+      "data_type": "integer",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "VantageScore 4.0 credit score disclosed in the Release 47 layout.",
+      "valid_range": null,
+      "valid_values": [
+        "300-850 where populated",
+        "9999=Not Available"
+      ],
+      "unit": null,
+      "business_category": "borrower"
+    },
+    {
+      "name": "credit_score_status",
+      "source_field": "credit_score",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Classification into VALID_VALUE, UNKNOWN, NOT_APPLICABLE, NOT_AVAILABLE, STRUCTURAL_NOT_AVAILABLE, INVALID, or NOT_DISCLOSED as applicable.",
+      "missing_semantics": "Companion status field for field-specific sentinel semantics.",
+      "description": "Normalization status for credit_score.",
+      "business_category": "normalization"
+    },
+    {
+      "name": "vantagescore_4_status",
+      "source_field": "vantagescore_4",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Classification into VALID_VALUE, UNKNOWN, NOT_APPLICABLE, NOT_AVAILABLE, STRUCTURAL_NOT_AVAILABLE, INVALID, or NOT_DISCLOSED as applicable.",
+      "missing_semantics": "Companion status field for field-specific sentinel semantics.",
+      "description": "Normalization status for vantagescore_4.",
+      "business_category": "normalization"
+    },
+    {
+      "name": "original_debt_to_income_ratio_status",
+      "source_field": "original_debt_to_income_ratio",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Classification into VALID_VALUE, UNKNOWN, NOT_APPLICABLE, NOT_AVAILABLE, STRUCTURAL_NOT_AVAILABLE, INVALID, or NOT_DISCLOSED as applicable.",
+      "missing_semantics": "Companion status field for field-specific sentinel semantics.",
+      "description": "Normalization status for original_debt_to_income_ratio.",
+      "business_category": "normalization"
+    },
+    {
+      "name": "original_loan_to_value_status",
+      "source_field": "original_loan_to_value",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Classification into VALID_VALUE, UNKNOWN, NOT_APPLICABLE, NOT_AVAILABLE, STRUCTURAL_NOT_AVAILABLE, INVALID, or NOT_DISCLOSED as applicable.",
+      "missing_semantics": "Companion status field for field-specific sentinel semantics.",
+      "description": "Normalization status for original_loan_to_value.",
+      "business_category": "normalization"
+    },
+    {
+      "name": "original_combined_loan_to_value_status",
+      "source_field": "original_combined_loan_to_value",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Classification into VALID_VALUE, UNKNOWN, NOT_APPLICABLE, NOT_AVAILABLE, STRUCTURAL_NOT_AVAILABLE, INVALID, or NOT_DISCLOSED as applicable.",
+      "missing_semantics": "Companion status field for field-specific sentinel semantics.",
+      "description": "Normalization status for original_combined_loan_to_value.",
+      "business_category": "normalization"
+    },
+    {
+      "name": "property_valuation_method_status",
+      "source_field": "property_valuation_method",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Classification into VALID_VALUE, UNKNOWN, NOT_APPLICABLE, NOT_AVAILABLE, STRUCTURAL_NOT_AVAILABLE, INVALID, or NOT_DISCLOSED as applicable.",
+      "missing_semantics": "Companion status field for field-specific sentinel semantics.",
+      "description": "Normalization status for property_valuation_method.",
+      "business_category": "normalization"
+    },
+    {
+      "name": "origination_month",
+      "source_field": "loan_id",
+      "data_type": "date",
+      "nullable": true,
+      "normalization": "Derived from loan_id vintage quarter as first month of quarter for consistency checks only.",
+      "missing_semantics": "Null if loan_id pattern is invalid.",
+      "description": "Technical monthly representation of origination quarter inferred from loan_id.",
+      "unit": "month",
+      "business_category": "date"
+    },
+    {
+      "name": "_source_year",
+      "source_field": "_source_year",
+      "data_type": "integer",
+      "nullable": false,
+      "normalization": "Preserved from Bronze lineage.",
+      "missing_semantics": "Required technical lineage.",
+      "description": "Source vintage year.",
+      "business_category": "technical"
+    },
+    {
+      "name": "_source_zip",
+      "source_field": "_source_zip",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Preserved from Bronze lineage.",
+      "missing_semantics": "Required technical lineage.",
+      "description": "Source ZIP archive.",
+      "business_category": "technical"
+    },
+    {
+      "name": "_source_member",
+      "source_field": "_source_member",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Preserved from Bronze lineage.",
+      "missing_semantics": "Required technical lineage.",
+      "description": "Source member inside ZIP archive.",
+      "business_category": "technical"
+    },
+    {
+      "name": "_ingested_at",
+      "source_field": "_ingested_at",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Preserved from Bronze lineage.",
+      "missing_semantics": "Required technical lineage.",
+      "description": "Bronze ingestion timestamp.",
+      "business_category": "technical"
+    },
+    {
+      "name": "_schema_version",
+      "source_field": "_schema_version",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Preserved from Bronze lineage.",
+      "missing_semantics": "Required technical lineage.",
+      "description": "Bronze source schema version.",
+      "business_category": "technical"
+    },
+    {
+      "name": "_silver_processed_at",
+      "source_field": null,
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Added by Silver build.",
+      "missing_semantics": "Required technical lineage.",
+      "description": "Silver processing timestamp.",
+      "business_category": "technical"
+    }
+  ]
+}

@@ -20,4 +20,6 @@ source_data:
 ingestion:
   fail_on_column_mismatch: true
   bronze_freddie_dir: data/bronze/freddie
+  silver_freddie_dir: data/silver/freddie
   manifest_dir: artifacts/ingestion
+  silver_manifest_dir: artifacts/silver

@@ -1,0 +1,678 @@
+{
+  "schema_id": "freddie_performance_silver_v1",
+  "dataset": "performance",
+  "version": "v1",
+  "fields": [
+    {
+      "name": "loan_id",
+      "source_field": "loan_id",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Unique loan identifier assigned by Freddie Mac for the dataset.",
+      "valid_range": null,
+      "valid_values": [
+        "PYYQnXXXXXXX"
+      ],
+      "unit": null,
+      "business_category": "identifier"
+    },
+    {
+      "name": "period",
+      "source_field": "period",
+      "data_type": "date",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "As-of month for loan performance information.",
+      "valid_range": null,
+      "valid_values": [
+        "YYYYMM"
+      ],
+      "unit": "month",
+      "business_category": "date"
+    },
+    {
+      "name": "current_actual_upb",
+      "source_field": "current_actual_upb",
+      "data_type": "decimal",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Ending mortgage balance for the reporting period, including interest-bearing and non-interest-bearing portions where applicable.",
+      "valid_range": null,
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "unit": null,
+      "business_category": "balance"
+    },
+    {
+      "name": "current_loan_delinquency_status",
+      "source_field": "current_loan_delinquency_status",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "MBA-method delinquency status or REO acquisition status.",
+      "valid_range": null,
+      "valid_values": [
+        "0=current or <30 DPD",
+        "1=30-59 DPD",
+        "2=60-89 DPD",
+        "3=90-119 DPD",
+        "4 and above=additional delinquency months",
+        "RA=REO Acquisition",
+        "XX=Observed initial-period sample status"
+      ],
+      "unit": null,
+      "business_category": "delinquency"
+    },
+    {
+      "name": "loan_age",
+      "source_field": "loan_age",
+      "data_type": "integer",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Scheduled payments from origination or modification first payment date through the current period.",
+      "valid_range": null,
+      "valid_values": [
+        "Months"
+      ],
+      "unit": null,
+      "business_category": "servicing"
+    },
+    {
+      "name": "remaining_months_to_legal_maturity",
+      "source_field": "remaining_months_to_legal_maturity",
+      "data_type": "integer",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Months remaining to legal maturity, using modified maturity date for modified loans.",
+      "valid_range": null,
+      "valid_values": [
+        "Months"
+      ],
+      "unit": null,
+      "business_category": "servicing"
+    },
+    {
+      "name": "defect_settlement_date",
+      "source_field": "defect_settlement_date",
+      "data_type": "date",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Date when an underwriting or servicing defect settlement event occurred.",
+      "valid_range": null,
+      "valid_values": [
+        "YYYYMM",
+        "Blank or spaces=Not Applicable"
+      ],
+      "unit": "month",
+      "business_category": "default"
+    },
+    {
+      "name": "modification_flag",
+      "source_field": "modification_flag",
+      "data_type": "string",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Indicates modification in current or prior period.",
+      "valid_range": null,
+      "valid_values": {
+        "Y": "Current Period Modification",
+        "P": "Prior Period Modification",
+        "": "Not Modified"
+      },
+      "unit": null,
+      "business_category": "modification"
+    },
+    {
+      "name": "zero_balance_code",
+      "source_field": "zero_balance_code",
+      "data_type": "string",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Reason code for the loan balance being reduced to zero.",
+      "valid_range": null,
+      "valid_values": {
+        "01": "Prepaid or Matured",
+        "02": "Third Party Sale",
+        "03": "Short Sale or Charge Off",
+        "09": "REO Disposition",
+        "15": "Whole Loan Sale",
+        "16": "Reperforming Loan Securitization",
+        "96": "Defect prior to other termination event"
+      },
+      "unit": null,
+      "business_category": "default"
+    },
+    {
+      "name": "zero_balance_effective_date",
+      "source_field": "zero_balance_effective_date",
+      "data_type": "date",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Date on which the zero-balance event occurred.",
+      "valid_range": null,
+      "valid_values": [
+        "YYYYMM"
+      ],
+      "unit": "month",
+      "business_category": "date"
+    },
+    {
+      "name": "current_interest_rate",
+      "source_field": "current_interest_rate",
+      "data_type": "decimal",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Current mortgage note rate after any loan modifications.",
+      "valid_range": null,
+      "valid_values": [
+        "Percent rate"
+      ],
+      "unit": null,
+      "business_category": "servicing"
+    },
+    {
+      "name": "current_non_interest_bearing_upb",
+      "source_field": "current_non_interest_bearing_upb",
+      "data_type": "decimal",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Non-interest-bearing portion of the UPB for the mortgage.",
+      "valid_range": null,
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "unit": null,
+      "business_category": "balance"
+    },
+    {
+      "name": "due_date_of_last_paid_installment",
+      "source_field": "due_date_of_last_paid_installment",
+      "data_type": "date",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Due date through which scheduled principal and interest has been paid.",
+      "valid_range": null,
+      "valid_values": [
+        "YYYYMM"
+      ],
+      "unit": "month",
+      "business_category": "delinquency"
+    },
+    {
+      "name": "mi_recoveries",
+      "source_field": "mi_recoveries",
+      "data_type": "decimal",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Mortgage insurance proceeds received by Freddie Mac in credit loss events.",
+      "valid_range": null,
+      "valid_values": [
+        "Dollar amount",
+        "Blank=Not Applicable for defect settlement cases"
+      ],
+      "unit": null,
+      "business_category": "recovery"
+    },
+    {
+      "name": "net_sale_proceeds",
+      "source_field": "net_sale_proceeds",
+      "data_type": "string",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Amount remitted from property disposition or loan sale after allowable selling expenses.",
+      "valid_range": null,
+      "valid_values": [
+        "Dollar amount",
+        "U=Unknown",
+        "Blank=Not Applicable for defect settlement cases"
+      ],
+      "unit": null,
+      "business_category": "recovery"
+    },
+    {
+      "name": "non_mi_recoveries",
+      "source_field": "non_mi_recoveries",
+      "data_type": "decimal",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Non-MI proceeds such as defect, make-whole, hazard insurance, rental, escrow, or miscellaneous credits.",
+      "valid_range": null,
+      "valid_values": [
+        "Dollar amount",
+        "Blank=Not Applicable for defect settlement cases"
+      ],
+      "unit": null,
+      "business_category": "recovery"
+    },
+    {
+      "name": "total_expenses",
+      "source_field": "total_expenses",
+      "data_type": "decimal",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Aggregated allowable expenses related to acquisition, maintenance, or disposition of a property.",
+      "valid_range": null,
+      "valid_values": [
+        "Dollar amount",
+        "Blank=Not Applicable for defect settlement cases"
+      ],
+      "unit": null,
+      "business_category": "loss"
+    },
+    {
+      "name": "legal_costs",
+      "source_field": "legal_costs",
+      "data_type": "decimal",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Legal costs associated with property sale outside net sale proceeds.",
+      "valid_range": null,
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "unit": null,
+      "business_category": "loss"
+    },
+    {
+      "name": "maintenance_and_preservation_costs",
+      "source_field": "maintenance_and_preservation_costs",
+      "data_type": "decimal",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Maintenance, preservation, repair, and REO management costs associated with property disposition.",
+      "valid_range": null,
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "unit": null,
+      "business_category": "loss"
+    },
+    {
+      "name": "taxes_and_insurance",
+      "source_field": "taxes_and_insurance",
+      "data_type": "decimal",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Taxes and insurance owed in connection with property disposition.",
+      "valid_range": null,
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "unit": null,
+      "business_category": "loss"
+    },
+    {
+      "name": "miscellaneous_expenses",
+      "source_field": "miscellaneous_expenses",
+      "data_type": "decimal",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Other disposition-related expenses such as title, administrative, or auction fees.",
+      "valid_range": null,
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "unit": null,
+      "business_category": "loss"
+    },
+    {
+      "name": "actual_loss",
+      "source_field": "actual_loss",
+      "data_type": "decimal",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Freddie Mac actual loss for selected zero-balance codes, excluding modification costs.",
+      "valid_range": null,
+      "valid_values": [
+        "Dollar amount",
+        "Blank under documented not-applicable rules"
+      ],
+      "unit": null,
+      "business_category": "loss"
+    },
+    {
+      "name": "cumulative_modification_costs",
+      "source_field": "cumulative_modification_costs",
+      "data_type": "decimal",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Cumulative modification costs calculated after rate modification, UPB forbearance, or payment deferral events.",
+      "valid_range": null,
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "unit": null,
+      "business_category": "modification"
+    },
+    {
+      "name": "interest_rate_step_indicator",
+      "source_field": "interest_rate_step_indicator",
+      "data_type": "string",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Indicates whether the most recent modification includes a step rate.",
+      "valid_range": null,
+      "valid_values": {
+        "Y": "Step Mod",
+        "N": "Non-Step Mod",
+        "": "Loan not modified"
+      },
+      "unit": null,
+      "business_category": "modification"
+    },
+    {
+      "name": "payment_deferral_flag",
+      "source_field": "payment_deferral_flag",
+      "data_type": "string",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Indicates payment deferral in current or prior period.",
+      "valid_range": null,
+      "valid_values": {
+        "Y": "Current Period",
+        "P": "Prior Period",
+        "": "Not Payment Deferral"
+      },
+      "unit": null,
+      "business_category": "modification"
+    },
+    {
+      "name": "estimated_loan_to_value",
+      "source_field": "estimated_loan_to_value",
+      "data_type": "integer",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Current LTV estimate from Freddie Mac AVM.",
+      "valid_range": null,
+      "valid_values": [
+        "1-998",
+        "999=Unknown",
+        "Blank=Data Not Available"
+      ],
+      "unit": null,
+      "business_category": "collateral"
+    },
+    {
+      "name": "zero_balance_removal_upb",
+      "source_field": "zero_balance_removal_upb",
+      "data_type": "decimal",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Total UPB immediately before zero-balance code application.",
+      "valid_range": null,
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "unit": null,
+      "business_category": "balance"
+    },
+    {
+      "name": "delinquent_accrued_interest",
+      "source_field": "delinquent_accrued_interest",
+      "data_type": "decimal",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Delinquent interest owed at default for selected zero-balance codes.",
+      "valid_range": null,
+      "valid_values": [
+        "Dollar amount",
+        "Populated for zero-balance codes 02,03,09,15"
+      ],
+      "unit": null,
+      "business_category": "loss"
+    },
+    {
+      "name": "delinquency_due_to_disaster",
+      "source_field": "delinquency_due_to_disaster",
+      "data_type": "string",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Servicer-reported disaster-related hardship flag.",
+      "valid_range": null,
+      "valid_values": {
+        "Y": "Delinquency Due to Disaster",
+        "": "Not Delinquency Due to Disaster"
+      },
+      "unit": null,
+      "business_category": "delinquency"
+    },
+    {
+      "name": "borrower_assistance_status_code",
+      "source_field": "borrower_assistance_status_code",
+      "data_type": "string",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Temporary assistance plan or workout status code regardless of delinquency status.",
+      "valid_range": null,
+      "valid_values": {
+        "F": "Forbearance",
+        "R": "Repayment",
+        "T": "Trial Period",
+        "": "No workout plan or not applicable"
+      },
+      "unit": null,
+      "business_category": "servicing"
+    },
+    {
+      "name": "current_period_modification_costs",
+      "source_field": "current_period_modification_costs",
+      "data_type": "decimal",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Current-period modification costs calculated for rate modification, principal forbearance, or payment deferral.",
+      "valid_range": null,
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "unit": null,
+      "business_category": "modification"
+    },
+    {
+      "name": "current_interest_bearing_upb",
+      "source_field": "current_interest_bearing_upb",
+      "data_type": "decimal",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Current interest-bearing UPB of the modified mortgage.",
+      "valid_range": null,
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "unit": null,
+      "business_category": "balance"
+    },
+    {
+      "name": "mortgage_insurance_cancellation_indicator",
+      "source_field": "mortgage_insurance_cancellation_indicator",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Indicates whether mortgage insurance has been reported as cancelled after Freddie Mac's purchase.",
+      "valid_range": null,
+      "valid_values": {
+        "Y": "Canceled",
+        "N": "Not Canceled",
+        "7": "Not Applicable",
+        "9": "Not Disclosed"
+      },
+      "unit": null,
+      "business_category": "servicing"
+    },
+    {
+      "name": "servicer_name",
+      "source_field": "servicer_name",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Servicer of record as of the last period for which loan activity is reported, subject to disclosure grouping.",
+      "valid_range": null,
+      "valid_values": [
+        "Servicer name",
+        "OTHER or grouped disclosure label"
+      ],
+      "unit": null,
+      "business_category": "servicing"
+    },
+    {
+      "name": "bankruptcy_cramdown_costs",
+      "source_field": "bankruptcy_cramdown_costs",
+      "data_type": "decimal",
+      "nullable": true,
+      "normalization": "Field-specific sentinel handling, safe type conversion, and monthly date normalization where applicable.",
+      "missing_semantics": "Source sentinels are classified through normalization_summary and selected status columns; no global sentinel replacement is applied.",
+      "description": "Bankruptcy cramdown costs disclosed in the Release 47 layout.",
+      "valid_range": null,
+      "valid_values": [
+        "Dollar amount"
+      ],
+      "unit": null,
+      "business_category": "loss"
+    },
+    {
+      "name": "estimated_loan_to_value_status",
+      "source_field": "estimated_loan_to_value",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Classification into VALID_VALUE, UNKNOWN, NOT_APPLICABLE, NOT_AVAILABLE, STRUCTURAL_NOT_AVAILABLE, INVALID, or NOT_DISCLOSED as applicable.",
+      "missing_semantics": "Companion status field for field-specific sentinel semantics.",
+      "description": "Normalization status for estimated_loan_to_value.",
+      "business_category": "normalization"
+    },
+    {
+      "name": "net_sale_proceeds_status",
+      "source_field": "net_sale_proceeds",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Classification into VALID_VALUE, UNKNOWN, NOT_APPLICABLE, NOT_AVAILABLE, STRUCTURAL_NOT_AVAILABLE, INVALID, or NOT_DISCLOSED as applicable.",
+      "missing_semantics": "Companion status field for field-specific sentinel semantics.",
+      "description": "Normalization status for net_sale_proceeds.",
+      "business_category": "normalization"
+    },
+    {
+      "name": "mortgage_insurance_cancellation_indicator_status",
+      "source_field": "mortgage_insurance_cancellation_indicator",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Classification into VALID_VALUE, UNKNOWN, NOT_APPLICABLE, NOT_AVAILABLE, STRUCTURAL_NOT_AVAILABLE, INVALID, or NOT_DISCLOSED as applicable.",
+      "missing_semantics": "Companion status field for field-specific sentinel semantics.",
+      "description": "Normalization status for mortgage_insurance_cancellation_indicator.",
+      "business_category": "normalization"
+    },
+    {
+      "name": "delinquency_months",
+      "source_field": "current_loan_delinquency_status",
+      "data_type": "integer",
+      "nullable": true,
+      "normalization": "Numeric delinquency source statuses are cast to months; special codes remain null here.",
+      "missing_semantics": "Null for special or missing source statuses.",
+      "description": "Source-semantic delinquency month count for numeric statuses only.",
+      "business_category": "delinquency"
+    },
+    {
+      "name": "delinquency_status_type",
+      "source_field": "current_loan_delinquency_status",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Classifies numeric statuses, RA, XX, missing, and unknown special statuses.",
+      "missing_semantics": "MISSING_STATUS when source status is blank/null.",
+      "description": "Delinquency status type without defining default.",
+      "business_category": "delinquency"
+    },
+    {
+      "name": "_source_year",
+      "source_field": "_source_year",
+      "data_type": "integer",
+      "nullable": false,
+      "normalization": "Preserved from Bronze lineage.",
+      "missing_semantics": "Required technical lineage.",
+      "description": "Source vintage year.",
+      "business_category": "technical"
+    },
+    {
+      "name": "_source_zip",
+      "source_field": "_source_zip",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Preserved from Bronze lineage.",
+      "missing_semantics": "Required technical lineage.",
+      "description": "Source ZIP archive.",
+      "business_category": "technical"
+    },
+    {
+      "name": "_source_member",
+      "source_field": "_source_member",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Preserved from Bronze lineage.",
+      "missing_semantics": "Required technical lineage.",
+      "description": "Source member inside ZIP archive.",
+      "business_category": "technical"
+    },
+    {
+      "name": "_ingested_at",
+      "source_field": "_ingested_at",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Preserved from Bronze lineage.",
+      "missing_semantics": "Required technical lineage.",
+      "description": "Bronze ingestion timestamp.",
+      "business_category": "technical"
+    },
+    {
+      "name": "_schema_version",
+      "source_field": "_schema_version",
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Preserved from Bronze lineage.",
+      "missing_semantics": "Required technical lineage.",
+      "description": "Bronze source schema version.",
+      "business_category": "technical"
+    },
+    {
+      "name": "_silver_processed_at",
+      "source_field": null,
+      "data_type": "string",
+      "nullable": false,
+      "normalization": "Added by Silver build.",
+      "missing_semantics": "Required technical lineage.",
+      "description": "Silver processing timestamp.",
+      "business_category": "technical"
+    }
+  ]
+}

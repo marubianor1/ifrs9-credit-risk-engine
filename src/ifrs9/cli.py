@@ -6,6 +6,7 @@ import argparse
 from collections.abc import Sequence
 
 from ifrs9.ingestion.freddie import run_freddie_ingestion
+from ifrs9.transformations.freddie_silver import run_freddie_silver_build
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -23,6 +24,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Overwrite existing successful partitions",
     )
 
+    silver = subparsers.add_parser("build-silver", help="Build Freddie Mac Silver layer")
+    silver_selection = silver.add_mutually_exclusive_group(required=True)
+    silver_selection.add_argument("--year", type=int, help="Single Freddie Mac year to transform")
+    silver_selection.add_argument("--all", action="store_true", help="Transform all Bronze years")
+    silver.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing successful Silver partitions",
+    )
+
     return parser
 
 
@@ -33,6 +44,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "ingest-freddie":
         run_freddie_ingestion(year=args.year, all_years=args.all, force=args.force)
+        return 0
+    if args.command == "build-silver":
+        run_freddie_silver_build(year=args.year, all_years=args.all, force=args.force)
         return 0
 
     parser.error(f"Unsupported command: {args.command}")

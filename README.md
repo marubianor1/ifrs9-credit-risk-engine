@@ -4,11 +4,11 @@ Professional portfolio project to build a reproducible IFRS 9 credit risk and ex
 
 The intended end-to-end architecture covers data ingestion, data quality, default definition, scoring, rating, 12-month and lifetime PD, EAD, LGD, SICR, staging, forward-looking macroeconomic adjustment, scenario weighting, ECL, stress testing, validation, monitoring, reporting, and an application layer.
 
-Current status: **Data Foundation — Bronze ingestion**.
+Current status: **Data Foundation — Silver standardized layer**.
 
-The Source to Bronze ingestion pipeline has been implemented for the local Freddie Mac sample archives. No Silver transformations, models, feature engineering, default definitions, or IFRS 9 estimates have been implemented yet.
+The Source to Bronze ingestion pipeline and Bronze to Silver standardization pipeline have been implemented for the local Freddie Mac sample archives. No modelling features, default definitions, PD, LGD, EAD, SICR, staging, or IFRS 9 estimates have been implemented yet.
 
-The current project layer contains a lightweight Freddie Mac source inventory, schema drift notes, a version-controlled schema registry for Release 47 sample files, and a reproducible Bronze Parquet ingestion pipeline.
+The current project layer contains a lightweight Freddie Mac source inventory, schema drift notes, version-controlled Release 47 source and Silver schemas, a reproducible Bronze Parquet ingestion pipeline, and a Silver standardization pipeline.
 
 ## Dataset
 
@@ -55,6 +55,12 @@ Run all discovered local sample years:
 
 ```bash
 poetry run ifrs9 ingest-freddie --all
+```
+
+Build the Silver layer:
+
+```bash
+poetry run ifrs9 build-silver --all
 ```
 
 Run quality checks after the environment is installed:
