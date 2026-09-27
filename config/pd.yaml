@@ -1,6 +1,30 @@
-pd:
-  status: planned
-  horizons:
-    - 12m
-    - lifetime
-
+pd_framework:
+  version: v1
+  primary_scorecard_run: behavioural_qe_v1
+  secondary_scorecard_runs:
+    - application_qe_v1
+  calibration:
+    method: logistic_recalibration
+    fit_split: VALIDATION
+    raw_pd_column: predicted_pd_raw
+  rating_master_scale:
+    grade_count: 10
+    labels: [R1, R2, R3, R4, R5, R6, R7, R8, R9, R10]
+    minimum_population_pct: 0.02
+    minimum_defaults: 20
+  ttc:
+    anchor_start: 2012-01-01
+    anchor_end: 2024-03-01
+    weighting: observation_weighted
+  lifetime:
+    max_horizon_months: 360
+    smoothing: 0.5
+    reconcile_first_12m: true
+  transitions:
+    frequencies_months: [1, 12]
+    default_state: DEFAULT
+  backtesting:
+    insufficient_default_threshold: 20
+  run:
+    artifact_root: artifacts/pd
+    model_root: models/pd

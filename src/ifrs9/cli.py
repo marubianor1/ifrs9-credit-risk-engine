@@ -108,6 +108,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     scorecard.add_argument("--run-id", help="Optional deterministic run ID")
 
+    pd_parser = subparsers.add_parser("build-pd", help="Build calibrated PD framework artifacts")
+    pd_parser.add_argument("--config", type=Path, help="Path to PD framework YAML")
+    pd_parser.add_argument(
+        "--scorecard-run",
+        default=None,
+        help="Parent scorecard run ID. Defaults to the configured primary run.",
+    )
+    pd_parser.add_argument("--run-id", help="Optional deterministic PD run ID")
+    pd_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite an existing PD run with the same run ID",
+    )
+
     return parser
 
 
@@ -147,6 +161,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             snapshot_frequency=args.snapshot_frequency,
             sampling_strategy=args.sampling_strategy,
             run_id=args.run_id,
+        )
+        return 0
+    if args.command == "build-pd":
+        from ifrs9.pd.framework import run_pd_framework
+
+        run_pd_framework(
+            config_path=args.config,
+            scorecard_run_id=args.scorecard_run,
+            run_id=args.run_id,
+            force=args.force,
         )
         return 0
 
