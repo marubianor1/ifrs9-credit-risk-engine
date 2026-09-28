@@ -3,13 +3,16 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
 from ifrs9.lgd.config import load_lgd_config
 from ifrs9.lgd.framework import (
     OUTCOME_EXCLUDED_COLUMNS,
+    _actual_loss_reconciliation,
     _add_lgd_targets,
+    _component_audit,
     _validated_predictors,
     build_lgd_episode_dataset,
     load_lgd_run,
@@ -70,6 +73,8 @@ def _write_repo(repo: Path) -> None:
     (base / "targets" / "default_events").mkdir(parents=True)
     (base / "loan_month" / "vintage_year=2020").mkdir(parents=True)
     (base / "loan_static" / "vintage_year=2020").mkdir(parents=True)
+    silver = repo / "data" / "silver" / "freddie" / "performance" / "vintage_year=2020"
+    silver.mkdir(parents=True)
     (repo / "artifacts" / "pd" / "pd_behavioural_qe_v1").mkdir(parents=True)
 
     events = []
@@ -148,6 +153,19 @@ def _write_repo(repo: Path) -> None:
         base / "loan_static" / "vintage_year=2020" / "part.parquet",
         index=False,
     )
+    silver_rows = pd.DataFrame(months).rename(columns={"as_of_date": "period"})
+    silver_rows["_source_year"] = silver_rows["vintage_year"]
+    silver_rows["zero_balance_removal_upb"] = np.where(
+        silver_rows["zero_balance_code"].notna(),
+        100_000.0,
+        np.nan,
+    )
+    silver_rows["delinquent_accrued_interest"] = np.where(
+        silver_rows["zero_balance_code"].notna(),
+        1_000.0,
+        np.nan,
+    )
+    silver_rows.to_parquet(silver / "part.parquet", index=False)
     pd.DataFrame(pd_rows).to_parquet(
         repo / "artifacts" / "pd" / "pd_behavioural_qe_v1" / "pd_predictions.parquet",
         index=False,
@@ -167,6 +185,7 @@ def test_episode_population_one_row_per_default_and_censoring(tmp_path: Path) ->
     assert episodes["cured_flag"].sum() == 6
     assert (~episodes["resolved_flag"]).sum() == 3
     assert episodes["rating_at_default"].notna().all()
+    assert episodes.loc[episodes["actual_loss"].notna(), "zero_balance_removal_upb"].notna().all()
 
 
 def test_discounted_cashflows_lgd_bounds_and_predictor_exclusions() -> None:
@@ -178,7 +197,9 @@ def test_discounted_cashflows_lgd_bounds_and_predictor_exclusions() -> None:
             "original_interest_rate": [10.0, 10.0, 10.0],
             "months_to_resolution": [12, 12, 12],
             "resolved_flag": [True, True, True],
-            "net_sale_proceeds": [120.0, 0.0, 20.0],
+            "cured_flag": [False, False, False],
+            "zero_balance_removal_upb": [100.0, 100.0, 100.0],
+            "net_sale_proceeds": [-120.0, 0.0, -20.0],
             "mi_recoveries": [0.0, 0.0, 0.0],
             "non_mi_recoveries": [0.0, 0.0, 0.0],
             "total_expenses": [0.0, 150.0, 10.0],
@@ -193,9 +214,47 @@ def test_discounted_cashflows_lgd_bounds_and_predictor_exclusions() -> None:
     assert output["realized_lgd_raw"].iloc[0] < 0
     assert output["realized_lgd_raw"].iloc[1] > 1
     assert output["realized_lgd_model_target"].between(0, 1).all()
+    assert output["freddie_reconstructed_actual_loss"].iloc[0] == pytest.approx(-20.0)
     assert not set(config.features.numeric + config.features.categorical).intersection(
         OUTCOME_EXCLUDED_COLUMNS
     )
+
+
+def test_reconciliation_formula_component_metadata_and_raw_lgd_preservation() -> None:
+    config = load_lgd_config(Path.cwd())
+    frame = pd.DataFrame(
+        {
+            "loan_id": ["A"],
+            "resolved_flag": [True],
+            "cured_flag": [False],
+            "ead_at_default": [150.0],
+            "ead_at_default_source": ["current_actual_upb"],
+            "zero_balance_removal_upb": [100.0],
+            "current_interest_rate_at_default": [0.0],
+            "original_interest_rate": [0.0],
+            "months_to_resolution": [0],
+            "net_sale_proceeds": [-70.0],
+            "mi_recoveries": [-5.0],
+            "non_mi_recoveries": [-2.0],
+            "total_expenses": [10.0],
+            "delinquent_accrued_interest": [3.0],
+            "cumulative_modification_costs": [4.0],
+            "bankruptcy_cramdown_costs": [1.0],
+            "actual_loss": [36.0],
+        }
+    )
+    output = _add_lgd_targets(frame, config)
+    reconciliation = _actual_loss_reconciliation(output)
+    audit = _component_audit(output)
+
+    assert output["freddie_reconstructed_actual_loss"].iloc[0] == pytest.approx(36.0)
+    assert output["economic_loss"].iloc[0] == pytest.approx(41.0)
+    assert output["realized_lgd_raw"].iloc[0] == pytest.approx(0.41)
+    assert reconciliation["reconstructed_difference_sum"].iloc[0] == pytest.approx(0.0)
+    assert audit.loc[
+        audit["component"] == "cumulative_modification_costs",
+        "component_type",
+    ].iloc[0] == "CUMULATIVE"
 
 
 def test_run_lgd_framework_persists_and_reloads(tmp_path: Path) -> None:
@@ -210,6 +269,8 @@ def test_run_lgd_framework_persists_and_reloads(tmp_path: Path) -> None:
     assert run["run_id"] == "lgd_small"
     assert Path(result.model_path, "lgd_models.pkl").exists()
     assert Path(result.artifact_path, "actual_loss_reconciliation.csv").exists()
+    assert Path(result.artifact_path, "lgd_component_audit.csv").exists()
+    assert Path(result.artifact_path, "lgd_distribution_diagnostics.csv").exists()
     assert episodes["predicted_lgd"].between(0, 1).all()
     assert _validated_predictors(load_lgd_config(repo))
     with pytest.raises(FileExistsError):

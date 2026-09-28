@@ -71,7 +71,7 @@ The framework reconstructs auditable economic-loss components using canonical Go
 - `bankruptcy_cramdown_costs`;
 - `actual_loss`.
 
-`delinquent_accrued_interest` is documented in the source schema but is not currently carried into the Gold mart, so it is persisted as unavailable in the LGD component summary.
+`zero_balance_removal_upb` and `delinquent_accrued_interest` are documented in the source schema but are not currently carried into the Gold mart. The LGD builder joins the terminal Silver performance row to retrieve those terminal values without rebuilding the mart.
 
 `actual_loss` is used for reconciliation only. It is not a model predictor.
 
@@ -79,11 +79,13 @@ The framework reconstructs auditable economic-loss components using canonical Go
 
 Recoveries and costs are discounted from resolution date to default date using the current interest rate at default as an effective-rate proxy. If that rate is missing, the framework falls back to the original interest rate and then zero.
 
+Freddie recovery fields are signed terminal values. Recovery credits are therefore added as signed amounts rather than subtracted as if they were positive proceeds. This prevents the double-negative error that inflated `lgd_v1` reconstructed loss.
+
 The economic loss formula is:
 
 ```text
-economic_loss = EAD at default - discounted recoveries + discounted costs
-LGD = economic_loss / EAD at default
+economic_loss = exposure basis + signed discounted recoveries + discounted costs
+LGD = economic_loss / exposure basis
 ```
 
 Raw LGD is not clipped for diagnostics. The model target is bounded using configurable target bounds, currently 0 to 1.
@@ -151,12 +153,28 @@ Backtesting reports by split:
 
 Additional outputs compare observed and predicted LGD by rating, default year, and resolution type. Recovery timing is reported by split and resolution type.
 
+## Reconciliation
+
+The framework persists a Freddie-style reconstruction separately from economic LGD:
+
+```text
+zero_balance_removal_upb
++ signed net sale proceeds
++ signed MI recoveries
++ signed non-MI recoveries
++ total expenses
++ delinquent accrued interest
+= Freddie-style reconstructed actual loss
+```
+
+`actual_loss` remains validation-only and is not used as a predictor or model target input.
+
 ## Limitations
 
 Important limitations:
 
 - Freddie disclosure data is not a full servicing cashflow ledger.
-- Several recoveries are signed in source data, so reconciliation is directional and auditable rather than a perfect recreation of Freddie `actual_loss`.
+- The economic LGD target may differ from Freddie `actual_loss` because it includes modelling choices such as discounting and additional economic cost components.
 - Cure-loss observations are sparse; many cured episodes use the explicit configured fallback.
 - The current models are interpretable baselines, not final production LGD models.
 - No EAD forecasting, SICR, staging, or ECL is performed in this layer.

@@ -15,6 +15,7 @@ from typing import Any
 import duckdb
 import numpy as np
 import pandas as pd
+from scipy.special import expit, logit
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression, LogisticRegression
@@ -34,11 +35,22 @@ RECOVERY_COMPONENTS = [
 COST_COMPONENTS = [
     "total_expenses",
     "delinquent_accrued_interest",
-    "cumulative_modification_costs",
     "bankruptcy_cramdown_costs",
 ]
-OUTCOME_EXCLUDED_COLUMNS = set(RECOVERY_COMPONENTS + COST_COMPONENTS) | {
+MODIFICATION_COST_COMPONENTS = ["cumulative_modification_costs"]
+RECONCILIATION_COMPONENTS = [
+    "zero_balance_removal_upb",
+    "net_sale_proceeds",
+    "mi_recoveries",
+    "non_mi_recoveries",
+    "total_expenses",
+    "delinquent_accrued_interest",
+]
+OUTCOME_EXCLUDED_COLUMNS = set(
+    RECOVERY_COMPONENTS + COST_COMPONENTS + MODIFICATION_COST_COMPONENTS
+) | {
     "actual_loss",
+    "zero_balance_removal_upb",
     "resolution_type",
     "resolution_date",
     "months_to_resolution",
@@ -47,6 +59,7 @@ OUTCOME_EXCLUDED_COLUMNS = set(RECOVERY_COMPONENTS + COST_COMPONENTS) | {
     "realized_lgd_raw",
     "realized_lgd_model_target",
     "economic_loss",
+    "freddie_reconstructed_actual_loss",
     "discounted_recoveries",
     "discounted_costs",
 }
@@ -110,6 +123,8 @@ def run_lgd_framework(
     lgd_diagnostics = _lgd_diagnostics(scored)
     reconciliation = _actual_loss_reconciliation(scored)
     segmentation = _segmentation_report(scored, config)
+    component_audit = _component_audit(scored)
+    distribution_diagnostics = _distribution_diagnostics(scored)
 
     scored.to_parquet(artifact_dir / "lgd_episodes.parquet", index=False)
     pd.DataFrame(metrics).to_csv(artifact_dir / "model_metrics.csv", index=False)
@@ -121,6 +136,11 @@ def run_lgd_framework(
     resolution_distribution.to_csv(artifact_dir / "resolution_distribution.csv", index=False)
     lgd_diagnostics.to_csv(artifact_dir / "lgd_diagnostics.csv", index=False)
     reconciliation.to_csv(artifact_dir / "actual_loss_reconciliation.csv", index=False)
+    component_audit.to_csv(artifact_dir / "lgd_component_audit.csv", index=False)
+    distribution_diagnostics.to_csv(
+        artifact_dir / "lgd_distribution_diagnostics.csv",
+        index=False,
+    )
     downturn.to_csv(artifact_dir / "downturn_overlay.csv", index=False)
     segmentation.to_csv(artifact_dir / "segmentation_report.csv", index=False)
     _cashflow_component_summary(scored).to_csv(
@@ -173,6 +193,14 @@ def build_lgd_episode_dataset(repo_root: Path, config: LGDFrameworkConfig) -> pd
             f"""
             CREATE OR REPLACE VIEW pd_predictions AS
             SELECT * FROM read_parquet('{pd_predictions.as_posix()}')
+            """
+        )
+        con.execute(
+            f"""
+            CREATE OR REPLACE VIEW silver_performance AS
+            SELECT * FROM read_parquet(
+                '{repo_root.as_posix()}/data/silver/freddie/performance/*/*.parquet'
+            )
             """
         )
         return con.execute(_episode_sql(config)).fetchdf()
@@ -236,6 +264,7 @@ def _episode_sql(config: LGDFrameworkConfig) -> str:
             m.as_of_date AS terminal_date,
             m.zero_balance_code,
             m.current_actual_upb,
+            sp.zero_balance_removal_upb,
             TRY_CAST(NULLIF(m.net_sale_proceeds, 'U') AS DOUBLE) AS net_sale_proceeds,
             m.mi_recoveries,
             m.non_mi_recoveries,
@@ -248,7 +277,7 @@ def _episode_sql(config: LGDFrameworkConfig) -> str:
             m.cumulative_modification_costs,
             m.current_period_modification_costs,
             m.bankruptcy_cramdown_costs,
-            CAST(NULL AS DOUBLE) AS delinquent_accrued_interest,
+            sp.delinquent_accrued_interest,
             row_number() OVER (
                 PARTITION BY e.loan_id, e.default_episode_id
                 ORDER BY m.as_of_date
@@ -260,6 +289,10 @@ def _episode_sql(config: LGDFrameworkConfig) -> str:
          AND m.as_of_date >= e.default_date
          AND m.as_of_date <= e.default_date + INTERVAL {horizon} MONTH
          AND NULLIF(m.zero_balance_code, '') IS NOT NULL
+        LEFT JOIN silver_performance sp
+          ON m.loan_id = sp.loan_id
+         AND m.vintage_year = sp.vintage_year
+         AND m.as_of_date = sp.period
     ),
     first_terminal AS (
         SELECT * EXCLUDE (terminal_rank)
@@ -286,6 +319,7 @@ def _episode_sql(config: LGDFrameworkConfig) -> str:
             r.rating AS rating_at_default,
             t.terminal_date,
             t.zero_balance_code,
+            t.zero_balance_removal_upb,
             t.net_sale_proceeds,
             t.mi_recoveries,
             t.non_mi_recoveries,
@@ -352,10 +386,31 @@ def _add_lgd_targets(frame: pd.DataFrame, config: LGDFrameworkConfig) -> pd.Data
     rate = rate.fillna(output["original_interest_rate"]).fillna(0.0) / 100 / 12
     months = output["months_to_resolution"].fillna(0).clip(lower=0)
     discount_factor = np.power(1 + rate, -months)
-    recoveries = output[RECOVERY_COMPONENTS].fillna(0).sum(axis=1)
+    signed_recoveries = output[RECOVERY_COMPONENTS].fillna(0).sum(axis=1)
     costs = output[COST_COMPONENTS].fillna(0).sum(axis=1)
-    observed_cashflow_amount = (
-        output[RECOVERY_COMPONENTS + COST_COMPONENTS].fillna(0).abs().sum(axis=1)
+    modification_costs = output[MODIFICATION_COST_COMPONENTS].fillna(0).sum(axis=1)
+    terminal_exposure = output["zero_balance_removal_upb"].where(
+        output["zero_balance_removal_upb"].gt(0),
+        output["ead_at_default"],
+    )
+    exposure_basis = terminal_exposure.where(output["resolved_flag"], output["ead_at_default"])
+    output["lgd_exposure_basis"] = exposure_basis
+    output["lgd_exposure_basis_source"] = np.where(
+        output["zero_balance_removal_upb"].gt(0) & output["resolved_flag"],
+        "zero_balance_removal_upb",
+        output["ead_at_default_source"]
+        if "ead_at_default_source" in output.columns
+        else "ead_at_default",
+    )
+    observed_cashflow_amount = output[
+        RECOVERY_COMPONENTS + COST_COMPONENTS + MODIFICATION_COST_COMPONENTS
+    ].fillna(0).abs().sum(axis=1)
+    output["signed_recoveries"] = signed_recoveries
+    output["discounted_signed_recoveries"] = signed_recoveries * discount_factor
+    output["model_costs"] = costs + modification_costs
+    output["discounted_model_costs"] = output["model_costs"] * discount_factor
+    output["freddie_reconstructed_actual_loss"] = (
+        output[RECONCILIATION_COMPONENTS].fillna(0).sum(axis=1)
     )
     cured_flag = output.get("cured_flag", pd.Series(False, index=output.index))
     actual_loss = output.get("actual_loss", pd.Series(np.nan, index=output.index))
@@ -363,20 +418,20 @@ def _add_lgd_targets(frame: pd.DataFrame, config: LGDFrameworkConfig) -> pd.Data
         cured_flag & (observed_cashflow_amount == 0) & actual_loss.isna()
     )
     output["discount_factor_to_resolution"] = discount_factor
-    output["discounted_recoveries"] = recoveries * discount_factor
+    output["discounted_recoveries"] = output["discounted_signed_recoveries"]
     output["discounted_costs"] = costs * discount_factor
     output["economic_loss"] = (
-        output["ead_at_default"].fillna(0)
-        - output["discounted_recoveries"]
-        + output["discounted_costs"]
+        exposure_basis.fillna(0)
+        + output["discounted_signed_recoveries"]
+        + output["discounted_model_costs"]
     )
     output.loc[output["cure_lgd_fallback_used"], "economic_loss"] = (
         output.loc[output["cure_lgd_fallback_used"], "ead_at_default"]
         * config.target.cure_fallback_lgd
     )
     output["realized_lgd_raw"] = np.where(
-        output["ead_at_default"] > 0,
-        output["economic_loss"] / output["ead_at_default"],
+        output["lgd_exposure_basis"] > 0,
+        output["economic_loss"] / output["lgd_exposure_basis"],
         np.nan,
     )
     output.loc[~output["resolved_flag"], "realized_lgd_raw"] = np.nan
@@ -425,7 +480,16 @@ def _fit_models(
         supervised.loc[train, predictors],
         supervised.loc[train, "cured_flag"].astype(int),
     )
-    scored["predicted_cure_probability"] = cure_model.predict_proba(scored[predictors])[:, 1]
+    scored["predicted_cure_probability_raw"] = cure_model.predict_proba(scored[predictors])[:, 1]
+    validation = supervised["split"] == "VALIDATION"
+    cure_recalibrator = _fit_probability_recalibrator(
+        scored.loc[supervised.index[validation], "predicted_cure_probability_raw"],
+        supervised.loc[validation, "cured_flag"].astype(int),
+    )
+    scored["predicted_cure_probability"] = _apply_probability_recalibrator(
+        scored["predicted_cure_probability_raw"],
+        cure_recalibrator,
+    )
 
     non_cure = supervised[~supervised["cured_flag"]].copy()
     severity_train = non_cure["split"] == "TRAIN"
@@ -445,8 +509,54 @@ def _fit_models(
         scored["predicted_cure_probability"] * scored["predicted_cure_lgd"]
         + (1 - scored["predicted_cure_probability"]) * scored["predicted_non_cure_lgd"]
     )
+    scored["predicted_lgd_uncalibrated"] = scored["predicted_lgd"]
+    expected_lgd_factor = _expected_lgd_calibration_factor(scored)
+    scored["predicted_lgd"] = np.clip(scored["predicted_lgd"] * expected_lgd_factor, 0, 1)
+    scored["expected_lgd_calibration_factor"] = expected_lgd_factor
     metrics = _model_metrics(scored)
-    return {"cure_model": cure_model, "severity_model": severity_model}, scored, metrics
+    return {
+        "cure_model": cure_model,
+        "cure_recalibrator": cure_recalibrator,
+        "severity_model": severity_model,
+        "expected_lgd_calibration": {
+            "method": "validation_mean_scaling",
+            "factor": expected_lgd_factor,
+        },
+    }, scored, metrics
+
+
+def _expected_lgd_calibration_factor(scored: pd.DataFrame) -> float:
+    validation = scored[(scored["split"] == "VALIDATION") & scored["resolved_flag"]]
+    if validation.empty:
+        return 1.0
+    predicted = validation["predicted_lgd"].mean()
+    if not predicted:
+        return 1.0
+    return float(validation["realized_lgd_model_target"].mean() / predicted)
+
+
+def _fit_probability_recalibrator(probability: pd.Series, target: pd.Series) -> dict[str, float]:
+    if target.nunique() < 2:
+        return {"method": "none", "intercept": 0.0, "coefficient": 1.0}
+    model = LogisticRegression(max_iter=300)
+    clipped = np.clip(probability.to_numpy(dtype=float), 1e-6, 1 - 1e-6)
+    model.fit(logit(clipped).reshape(-1, 1), target.to_numpy(dtype=int))
+    coefficient = max(float(model.coef_[0][0]), 0.0)
+    return {
+        "method": "validation_logistic_recalibration",
+        "intercept": float(model.intercept_[0]),
+        "coefficient": coefficient,
+    }
+
+
+def _apply_probability_recalibrator(
+    probability: pd.Series,
+    calibrator: dict[str, float],
+) -> np.ndarray:
+    clipped = np.clip(probability.to_numpy(dtype=float), 1e-6, 1 - 1e-6)
+    if calibrator["method"] == "none":
+        return clipped
+    return expit(calibrator["intercept"] + calibrator["coefficient"] * logit(clipped))
 
 
 def _model_pipeline(numeric: list[str], categorical: list[str], kind: str) -> Pipeline:
@@ -487,9 +597,17 @@ def _model_metrics(scored: pd.DataFrame) -> list[dict[str, Any]]:
             {
                 "model": "expected_lgd",
                 "split": split,
+                "population": "all_resolved",
+                "target": "realized_lgd_model_target",
+                "weighted": False,
                 "rows": len(group),
                 "mae": mean_absolute_error(target, group["predicted_lgd"]),
                 "rmse": mean_squared_error(target, group["predicted_lgd"]) ** 0.5,
+                "realized_mean": target.mean(),
+                "predicted_mean": group["predicted_lgd"].mean(),
+                "oe_ratio": target.mean() / group["predicted_lgd"].mean()
+                if group["predicted_lgd"].mean()
+                else np.nan,
             }
         )
         if group["cured_flag"].nunique() > 1:
@@ -497,6 +615,9 @@ def _model_metrics(scored: pd.DataFrame) -> list[dict[str, Any]]:
                 {
                     "model": "cure",
                     "split": split,
+                    "population": "all_resolved",
+                    "target": "cured_flag",
+                    "weighted": False,
                     "rows": len(group),
                     "roc_auc": roc_auc_score(
                         group["cured_flag"].astype(int),
@@ -504,6 +625,30 @@ def _model_metrics(scored: pd.DataFrame) -> list[dict[str, Any]]:
                     ),
                     "observed_cure_rate": group["cured_flag"].mean(),
                     "predicted_cure_rate": group["predicted_cure_probability"].mean(),
+                    "raw_predicted_cure_rate": group["predicted_cure_probability_raw"].mean(),
+                }
+            )
+        cure = group[group["cured_flag"]]
+        if not cure.empty:
+            rows.append(
+                {
+                    "model": "cure_lgd",
+                    "split": split,
+                    "population": "cured_resolved",
+                    "target": "realized_lgd_model_target",
+                    "weighted": False,
+                    "rows": len(cure),
+                    "mae": mean_absolute_error(
+                        cure["realized_lgd_model_target"],
+                        cure["predicted_cure_lgd"],
+                    ),
+                    "rmse": mean_squared_error(
+                        cure["realized_lgd_model_target"],
+                        cure["predicted_cure_lgd"],
+                    )
+                    ** 0.5,
+                    "realized_mean": cure["realized_lgd_model_target"].mean(),
+                    "predicted_mean": cure["predicted_cure_lgd"].mean(),
                 }
             )
         non_cure = group[~group["cured_flag"]]
@@ -512,6 +657,9 @@ def _model_metrics(scored: pd.DataFrame) -> list[dict[str, Any]]:
                 {
                     "model": "non_cure_severity",
                     "split": split,
+                    "population": "non_cure_resolved",
+                    "target": "realized_lgd_model_target",
+                    "weighted": False,
                     "rows": len(non_cure),
                     "mae": mean_absolute_error(
                         non_cure["realized_lgd_model_target"],
@@ -522,6 +670,8 @@ def _model_metrics(scored: pd.DataFrame) -> list[dict[str, Any]]:
                         non_cure["predicted_non_cure_lgd"],
                     )
                     ** 0.5,
+                    "realized_mean": non_cure["realized_lgd_model_target"].mean(),
+                    "predicted_mean": non_cure["predicted_non_cure_lgd"].mean(),
                 }
             )
     return rows
@@ -541,6 +691,10 @@ def _backtesting_by_split(scored: pd.DataFrame) -> pd.DataFrame:
                 "realized_mean_lgd": resolved["realized_lgd_model_target"].mean(),
                 "realized_median_lgd": resolved["realized_lgd_model_target"].median(),
                 "predicted_lgd": resolved["predicted_lgd"].mean(),
+                "oe_ratio": resolved["realized_lgd_model_target"].mean()
+                / resolved["predicted_lgd"].mean()
+                if len(resolved) and resolved["predicted_lgd"].mean()
+                else np.nan,
                 "mae": mean_absolute_error(
                     resolved["realized_lgd_model_target"],
                     resolved["predicted_lgd"],
@@ -563,7 +717,7 @@ def _observed_predicted(scored: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
     resolved = scored[scored["resolved_flag"]]
     if resolved.empty:
         return pd.DataFrame()
-    return (
+    output = (
         resolved.groupby(keys, observed=True)
         .agg(
             resolved_defaults=("loan_id", "size"),
@@ -572,6 +726,8 @@ def _observed_predicted(scored: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
         )
         .reset_index()
     )
+    output["oe_ratio"] = output["realized_lgd"] / output["predicted_lgd"]
+    return output
 
 
 def _recovery_timing(scored: pd.DataFrame) -> pd.DataFrame:
@@ -621,19 +777,100 @@ def _actual_loss_reconciliation(scored: pd.DataFrame) -> pd.DataFrame:
     frame = scored[scored["actual_loss"].notna() & scored["resolved_flag"]].copy()
     if frame.empty:
         return pd.DataFrame()
+    frame["reconstructed_minus_actual_loss"] = (
+        frame["freddie_reconstructed_actual_loss"] - frame["actual_loss"]
+    )
     frame["economic_minus_actual_loss"] = frame["economic_loss"] - frame["actual_loss"]
     return pd.DataFrame(
         [
             {
                 "rows_with_actual_loss": len(frame),
                 "actual_loss_sum": frame["actual_loss"].sum(),
+                "reconstructed_actual_loss_sum": frame[
+                    "freddie_reconstructed_actual_loss"
+                ].sum(),
+                "reconstructed_difference_sum": frame[
+                    "reconstructed_minus_actual_loss"
+                ].sum(),
+                "reconstructed_difference_mean": frame[
+                    "reconstructed_minus_actual_loss"
+                ].mean(),
+                "reconstructed_correlation": frame[
+                    "freddie_reconstructed_actual_loss"
+                ].corr(frame["actual_loss"]),
                 "economic_loss_sum": frame["economic_loss"].sum(),
-                "difference_sum": frame["economic_minus_actual_loss"].sum(),
-                "difference_mean": frame["economic_minus_actual_loss"].mean(),
-                "correlation": frame["economic_loss"].corr(frame["actual_loss"]),
+                "economic_difference_sum": frame["economic_minus_actual_loss"].sum(),
+                "economic_difference_mean": frame["economic_minus_actual_loss"].mean(),
+                "economic_correlation": frame["economic_loss"].corr(frame["actual_loss"]),
             }
         ]
     )
+
+
+def _component_audit(scored: pd.DataFrame) -> pd.DataFrame:
+    metadata = {
+        "zero_balance_removal_upb": ("TERMINAL_VALUE", "exposure basis for Freddie reconciliation"),
+        "ead_at_default": (
+            "POINT_IN_TIME",
+            "fallback exposure for unresolved or missing terminal UPB",
+        ),
+        "net_sale_proceeds": ("TERMINAL_VALUE", "signed recovery credit"),
+        "mi_recoveries": ("TERMINAL_VALUE", "signed recovery credit"),
+        "non_mi_recoveries": ("TERMINAL_VALUE", "signed recovery credit"),
+        "total_expenses": ("TERMINAL_VALUE", "signed/positive expense"),
+        "delinquent_accrued_interest": ("TERMINAL_VALUE", "interest owed at terminal event"),
+        "bankruptcy_cramdown_costs": ("TERMINAL_VALUE", "additional economic cost"),
+        "cumulative_modification_costs": ("CUMULATIVE", "latest valid cumulative value only"),
+        "actual_loss": ("VALIDATION_ONLY", "not used as a predictor or target input"),
+    }
+    rows = []
+    for component, (component_type, treatment) in metadata.items():
+        if component not in scored.columns:
+            continue
+        values = scored[component]
+        rows.append(
+            {
+                "component": component,
+                "component_type": component_type,
+                "treatment": treatment,
+                "non_null_rows": int(values.notna().sum()),
+                "sum": values.fillna(0).sum(),
+                "negative_rows": int((values < 0).sum()),
+                "positive_rows": int((values > 0).sum()),
+                "used_in_freddie_reconciliation": component in RECONCILIATION_COMPONENTS,
+                "used_in_economic_lgd": component
+                in set(RECONCILIATION_COMPONENTS + ["bankruptcy_cramdown_costs"])
+                or component in MODIFICATION_COST_COMPONENTS,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _distribution_diagnostics(scored: pd.DataFrame) -> pd.DataFrame:
+    resolved = scored[scored["resolved_flag"]].copy()
+    frames = [
+        _distribution_group(resolved, ["resolution_type"], "resolution_type"),
+        _distribution_group(resolved, ["default_year"], "default_year"),
+        _distribution_group(resolved, ["cured_flag"], "cure_non_cure"),
+    ]
+    return pd.concat(frames, ignore_index=True)
+
+
+def _distribution_group(frame: pd.DataFrame, keys: list[str], dimension: str) -> pd.DataFrame:
+    output = (
+        frame.groupby(keys, observed=True)
+        .agg(
+            rows=("loan_id", "size"),
+            raw_lgd_mean=("realized_lgd_raw", "mean"),
+            raw_lgd_median=("realized_lgd_raw", "median"),
+            model_target_mean=("realized_lgd_model_target", "mean"),
+            raw_lgd_below_0_pct=("realized_lgd_raw", lambda series: (series < 0).mean()),
+            raw_lgd_above_1_pct=("realized_lgd_raw", lambda series: (series > 1).mean()),
+        )
+        .reset_index()
+    )
+    output.insert(0, "dimension", dimension)
+    return output
 
 
 def _downturn_table(scored: pd.DataFrame, config: LGDFrameworkConfig) -> pd.DataFrame:
