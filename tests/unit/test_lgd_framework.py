@@ -1,0 +1,216 @@
+from __future__ import annotations
+
+import shutil
+from pathlib import Path
+
+import pandas as pd
+import pytest
+
+from ifrs9.lgd.config import load_lgd_config
+from ifrs9.lgd.framework import (
+    OUTCOME_EXCLUDED_COLUMNS,
+    _add_lgd_targets,
+    _validated_predictors,
+    build_lgd_episode_dataset,
+    load_lgd_run,
+    run_lgd_framework,
+)
+
+
+def _copy_config(repo: Path) -> None:
+    (repo / "config").mkdir()
+    shutil.copy(Path.cwd() / "config" / "lgd.yaml", repo / "config" / "lgd.yaml")
+
+
+def _minimal_month_row(
+    loan_id: str,
+    date: str,
+    *,
+    zero_balance_code: str | None = None,
+    actual_loss: float | None = None,
+    current_upb: float = 100_000.0,
+) -> dict[str, object]:
+    return {
+        "loan_id": loan_id,
+        "vintage_year": 2020,
+        "as_of_date": pd.Timestamp(date).date(),
+        "current_actual_upb": current_upb,
+        "current_upb_lag_1": 100_000.0,
+        "current_interest_rate": 6.0,
+        "estimated_loan_to_value": 85,
+        "current_upb_to_original_upb": 0.9,
+        "delinquency_months": 3,
+        "max_delinquency_months_to_date": 3,
+        "months_delinquent_to_date": 3.0,
+        "months_since_last_delinquency": 0,
+        "months_since_origination": 36,
+        "ever_modified_to_date": False,
+        "ever_assistance_to_date": False,
+        "zero_balance_code": zero_balance_code,
+        "net_sale_proceeds": "70000" if zero_balance_code else None,
+        "mi_recoveries": 5_000.0 if zero_balance_code else None,
+        "non_mi_recoveries": 2_000.0 if zero_balance_code else None,
+        "total_expenses": 4_000.0 if zero_balance_code else None,
+        "delinquent_accrued_interest": 1_000.0 if zero_balance_code else None,
+        "actual_loss": actual_loss,
+        "cumulative_modification_costs": 500.0 if zero_balance_code else None,
+        "current_period_modification_costs": 100.0 if zero_balance_code else None,
+        "bankruptcy_cramdown_costs": 0.0,
+        "legal_costs": 800.0 if zero_balance_code else None,
+        "maintenance_and_preservation_costs": 600.0 if zero_balance_code else None,
+        "taxes_and_insurance": 700.0 if zero_balance_code else None,
+        "miscellaneous_expenses": 200.0 if zero_balance_code else None,
+    }
+
+
+def _write_repo(repo: Path) -> None:
+    (repo / "pyproject.toml").write_text("[project]\nname = 'test'\n")
+    _copy_config(repo)
+    base = repo / "data" / "gold" / "freddie"
+    (base / "targets" / "default_events").mkdir(parents=True)
+    (base / "loan_month" / "vintage_year=2020").mkdir(parents=True)
+    (base / "loan_static" / "vintage_year=2020").mkdir(parents=True)
+    (repo / "artifacts" / "pd" / "pd_behavioural_qe_v1").mkdir(parents=True)
+
+    events = []
+    months = []
+    static = []
+    pd_rows = []
+    for index in range(18):
+        loan_id = f"L{index:03d}"
+        year = 2018 if index < 10 else 2020 if index < 14 else 2023
+        default_date = f"{year}-03-01"
+        cured = index % 3 == 0
+        unresolved = index in {8, 13, 17}
+        terminal_code = None if unresolved or cured else ("09" if index % 2 else "03")
+        cure_date = f"{year}-06-01" if cured else None
+        events.append(
+            {
+                "loan_id": loan_id,
+                "vintage_year": 2020,
+                "default_episode_id": 1,
+                "default_entry_date": pd.Timestamp(default_date).date(),
+                "cure_date": pd.Timestamp(cure_date).date() if cure_date else None,
+                "default_reason": "DELINQUENCY_3_PLUS",
+                "default_due_to_delinquency": True,
+                "default_due_to_credit_event": False,
+                "redefault_flag": False,
+                "redefault_date": None,
+                "_target_processed_at": "test",
+            }
+        )
+        months.append(_minimal_month_row(loan_id, default_date))
+        if terminal_code:
+            months.append(
+                _minimal_month_row(
+                    loan_id,
+                    f"{year}-09-01",
+                    zero_balance_code=terminal_code,
+                    actual_loss=25_000.0 + index * 100,
+                    current_upb=0.0,
+                )
+            )
+        static.append(
+            {
+                "loan_id": loan_id,
+                "vintage_year": 2020,
+                "original_credit_score": 700 - index,
+                "original_dti": 32,
+                "original_ltv": 80,
+                "original_cltv": 82,
+                "original_upb": 110_000.0,
+                "original_interest_rate": 5.5,
+                "mortgage_insurance_percentage": 20,
+                "property_state": "CA",
+                "property_type": "SF",
+                "occupancy_status": "P",
+                "loan_purpose": "P",
+                "channel": "R",
+                "_gold_processed_at": "test",
+            }
+        )
+        pd_rows.append(
+            {
+                "loan_id": loan_id,
+                "as_of_date": pd.Timestamp(default_date).date(),
+                "rating": "R1" if index < 9 else "R2",
+            }
+        )
+    pd.DataFrame(events).to_parquet(
+        base / "targets" / "default_events" / "part.parquet",
+        index=False,
+    )
+    pd.DataFrame(months).to_parquet(
+        base / "loan_month" / "vintage_year=2020" / "part.parquet",
+        index=False,
+    )
+    pd.DataFrame(static).to_parquet(
+        base / "loan_static" / "vintage_year=2020" / "part.parquet",
+        index=False,
+    )
+    pd.DataFrame(pd_rows).to_parquet(
+        repo / "artifacts" / "pd" / "pd_behavioural_qe_v1" / "pd_predictions.parquet",
+        index=False,
+    )
+
+
+def test_episode_population_one_row_per_default_and_censoring(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _write_repo(repo)
+    config = load_lgd_config(repo)
+
+    episodes = build_lgd_episode_dataset(repo, config)
+
+    assert len(episodes) == 18
+    assert episodes[["loan_id", "default_episode_id"]].drop_duplicates().shape[0] == 18
+    assert episodes["cured_flag"].sum() == 6
+    assert (~episodes["resolved_flag"]).sum() == 3
+    assert episodes["rating_at_default"].notna().all()
+
+
+def test_discounted_cashflows_lgd_bounds_and_predictor_exclusions() -> None:
+    config = load_lgd_config(Path.cwd())
+    frame = pd.DataFrame(
+        {
+            "ead_at_default": [100.0, 100.0, 100.0],
+            "current_interest_rate_at_default": [12.0, 12.0, 12.0],
+            "original_interest_rate": [10.0, 10.0, 10.0],
+            "months_to_resolution": [12, 12, 12],
+            "resolved_flag": [True, True, True],
+            "net_sale_proceeds": [120.0, 0.0, 20.0],
+            "mi_recoveries": [0.0, 0.0, 0.0],
+            "non_mi_recoveries": [0.0, 0.0, 0.0],
+            "total_expenses": [0.0, 150.0, 10.0],
+            "delinquent_accrued_interest": [0.0, 0.0, 0.0],
+            "cumulative_modification_costs": [0.0, 0.0, 0.0],
+            "bankruptcy_cramdown_costs": [0.0, 0.0, 0.0],
+        }
+    )
+
+    output = _add_lgd_targets(frame, config)
+
+    assert output["realized_lgd_raw"].iloc[0] < 0
+    assert output["realized_lgd_raw"].iloc[1] > 1
+    assert output["realized_lgd_model_target"].between(0, 1).all()
+    assert not set(config.features.numeric + config.features.categorical).intersection(
+        OUTCOME_EXCLUDED_COLUMNS
+    )
+
+
+def test_run_lgd_framework_persists_and_reloads(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _write_repo(repo)
+
+    result = run_lgd_framework(repo_root=repo, run_id="lgd_small", force=True)
+    run = load_lgd_run(repo, "lgd_small")
+    episodes = pd.read_parquet(Path(result.artifact_path) / "lgd_episodes.parquet")
+
+    assert run["run_id"] == "lgd_small"
+    assert Path(result.model_path, "lgd_models.pkl").exists()
+    assert Path(result.artifact_path, "actual_loss_reconciliation.csv").exists()
+    assert episodes["predicted_lgd"].between(0, 1).all()
+    assert _validated_predictors(load_lgd_config(repo))
+    with pytest.raises(FileExistsError):
+        run_lgd_framework(repo_root=repo, run_id="lgd_small")
