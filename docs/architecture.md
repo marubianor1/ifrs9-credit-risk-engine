@@ -1,6 +1,6 @@
 # Architecture
 
-The implemented modelling foundation currently covers source discovery, schema validation, Bronze ingestion, Silver standardization, a Gold point-in-time loan-month mart, default/PD target construction, temporal development-sample metadata, traditional logistic scorecard experiments, and a calibrated PD framework for Freddie Mac annual sample ZIP files.
+The implemented modelling foundation currently covers source discovery, schema validation, Bronze ingestion, Silver standardization, a Gold point-in-time loan-month mart, default/PD target construction, temporal development-sample metadata, traditional logistic scorecard experiments, a calibrated PD framework, and a forward-looking PD scenario framework for Freddie Mac annual sample ZIP files.
 
 ## Current Flow
 
@@ -21,11 +21,12 @@ Freddie Mac sample ZIP files
         -> temporal development sample metadata
         -> WOE binning and logistic scorecard runs
         -> raw 12M PD, calibration, ratings, TTC anchor, and lifetime PD curves
+        -> macro factor, Vasicek PIT PD, scenarios, and weighted PD curves
         -> ingestion manifest and data-quality report
         -> DuckDB validation queries
 ```
 
-Bronze outputs are written under `data/bronze/freddie/`, Silver outputs are written under `data/silver/freddie/`, and Gold outputs are written under `data/gold/freddie/`. Target outputs are written under `data/gold/freddie/targets/`, and development metadata is written under `data/gold/freddie/development/`. Scorecard model objects are written under `models/scorecard/`, and scorecard run artifacts are written under `artifacts/models/scorecard/`. PD model objects are written under `models/pd/`, and PD run artifacts are written under `artifacts/pd/`. These generated outputs are ignored by Git.
+Bronze outputs are written under `data/bronze/freddie/`, Silver outputs are written under `data/silver/freddie/`, and Gold outputs are written under `data/gold/freddie/`. Target outputs are written under `data/gold/freddie/targets/`, and development metadata is written under `data/gold/freddie/development/`. Scorecard model objects are written under `models/scorecard/`, and scorecard run artifacts are written under `artifacts/models/scorecard/`. PD model objects are written under `models/pd/`, and PD run artifacts are written under `artifacts/pd/`. Forward-looking model objects are written under `models/forward_looking/`, and scenario artifacts are written under `artifacts/forward_looking/`. These generated outputs are ignored by Git.
 
 ## Implemented Components
 
@@ -52,8 +53,11 @@ Bronze outputs are written under `data/bronze/freddie/`, Silver outputs are writ
 - `src/ifrs9/models/scorecard/runner.py`: scorecard run orchestration, artifacts, and run comparison helpers.
 - `src/ifrs9/pd/config.py`: calibrated PD framework configuration objects.
 - `src/ifrs9/pd/framework.py`: PD calibration, rating scale, TTC anchor, lifetime curves, transitions, backtesting, artifacts, and run loading.
+- `src/ifrs9/macro/config.py`: forward-looking PD and macro scenario configuration objects.
+- `src/ifrs9/macro/data.py`: public FRED macro download, cache, and quarterly transformation pipeline.
+- `src/ifrs9/macro/forward_looking.py`: Vasicek, macro satellite challenger, scenario weighting, lifetime adjustment, backtesting, artifacts, and run loading.
 - `src/ifrs9/cli.py`: command-line entry point.
 
 ## Not Yet Implemented
 
-Macro-adjusted PIT conversion, Vasicek overlays, LGD, EAD, SICR, staging, ECL, stress testing, monitoring, and application pages are intentionally out of scope for the current layer.
+LGD, EAD, SICR, staging, ECL, stress testing, monitoring, and application pages are intentionally out of scope for the current layer.

@@ -1,6 +1,81 @@
 forward_looking:
-  status: planned
-  methods:
-    - macro_scenarios
-    - vasicek_adjustment
-
+  version: v1
+  parent_pd_run: pd_behavioural_qe_v1
+  method: vasicek
+  challenger_method: macro_satellite
+  macro:
+    source: fred
+    raw_cache_dir: data/raw/macro/fred
+    transformed_path: data/raw/macro/fred_quarterly.csv
+    start_date: 2010-01-01
+    series:
+      unemployment_rate:
+        fred_id: UNRATE
+        frequency: monthly
+        aggregation: mean
+        transform: level
+      house_price_index:
+        fred_id: CSUSHPINSA
+        frequency: monthly
+        aggregation: mean
+        transform: yoy_pct
+      real_gdp:
+        fred_id: GDPC1
+        frequency: quarterly
+        aggregation: last
+        transform: yoy_pct
+      mortgage_rate:
+        fred_id: MORTGAGE30US
+        frequency: weekly
+        aggregation: mean
+        transform: level
+    feature_columns:
+      - unemployment_rate
+      - unemployment_rate_change
+      - house_price_index_yoy
+      - real_gdp_yoy
+      - mortgage_rate
+      - mortgage_rate_change
+  vasicek:
+    rho_override: null
+    rho_min: 0.01
+    rho_max: 0.25
+    rho_grid_size: 100
+    clipping_epsilon: 0.000001
+  satellite:
+    regularization_strength: 1.0
+    target: observed_default_rate
+  scenarios:
+    mode: historical_shock
+    horizon_quarters: 12
+    start_date: 2025-06-30
+    base_growth_scale: 1.0
+    weights:
+      BASE: 0.55
+      UPSIDE: 0.15
+      DOWNSIDE: 0.30
+    shocks:
+      BASE:
+        unemployment_rate: 0.0
+        house_price_index_yoy: 0.0
+        real_gdp_yoy: 0.0
+        mortgage_rate: 0.0
+      UPSIDE:
+        unemployment_rate: -0.5
+        house_price_index_yoy: 3.0
+        real_gdp_yoy: 1.0
+        mortgage_rate: -0.25
+      DOWNSIDE:
+        unemployment_rate: 2.0
+        house_price_index_yoy: -10.0
+        real_gdp_yoy: -3.0
+        mortgage_rate: 1.5
+  lifetime:
+    adjustment_method: conditional_hazard_ratio
+    max_horizon_months: 360
+  backtesting:
+    stress_start: 2019-01-01
+    stress_end: 2021-12-31
+  run:
+    artifact_root: artifacts/forward_looking
+    model_root: models/forward_looking

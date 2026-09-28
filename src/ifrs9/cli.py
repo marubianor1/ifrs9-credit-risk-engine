@@ -122,6 +122,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Overwrite an existing PD run with the same run ID",
     )
 
+    forward = subparsers.add_parser(
+        "build-forward-looking",
+        help="Build forward-looking PD scenario artifacts",
+    )
+    forward.add_argument("--config", type=Path, help="Path to forward-looking YAML")
+    forward.add_argument(
+        "--pd-run",
+        default=None,
+        help="Parent PD run ID. Defaults to the configured parent PD run.",
+    )
+    forward.add_argument("--run-id", help="Optional deterministic forward-looking run ID")
+    forward.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite an existing forward-looking run with the same run ID",
+    )
+
     return parser
 
 
@@ -169,6 +186,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         run_pd_framework(
             config_path=args.config,
             scorecard_run_id=args.scorecard_run,
+            run_id=args.run_id,
+            force=args.force,
+        )
+        return 0
+    if args.command == "build-forward-looking":
+        from ifrs9.macro.forward_looking import run_forward_looking
+
+        run_forward_looking(
+            config_path=args.config,
+            pd_run_id=args.pd_run,
             run_id=args.run_id,
             force=args.force,
         )

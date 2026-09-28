@@ -4,11 +4,11 @@ Professional portfolio project to build a reproducible IFRS 9 credit risk and ex
 
 The intended end-to-end architecture covers data ingestion, data quality, default definition, scoring, rating, 12-month and lifetime PD, EAD, LGD, SICR, staging, forward-looking macroeconomic adjustment, scenario weighting, ECL, stress testing, validation, monitoring, reporting, and an application layer.
 
-Current status: **Modelling — Calibrated PD Framework**.
+Current status: **Modelling — Forward-Looking PD Framework**.
 
-The Source to Bronze ingestion pipeline, Bronze to Silver standardization pipeline, Gold point-in-time loan-month mart, default definition, PD target factory, temporal development-sample factory, traditional logistic scorecard experiment framework, and calibrated PD framework have been implemented for the local Freddie Mac sample archives. No LGD, EAD, SICR, staging, macro overlay, or ECL estimates have been implemented yet.
+The Source to Bronze ingestion pipeline, Bronze to Silver standardization pipeline, Gold point-in-time loan-month mart, default definition, PD target factory, temporal development-sample factory, traditional logistic scorecard experiment framework, calibrated PD framework, and forward-looking Vasicek scenario framework have been implemented for the local Freddie Mac sample archives. No LGD, EAD, SICR, staging, or ECL estimates have been implemented yet.
 
-The current project layer contains a lightweight Freddie Mac source inventory, schema drift notes, version-controlled Release 47 source and Silver schemas, a reproducible Bronze Parquet ingestion pipeline, a Silver standardization pipeline, a Gold analytical mart with leakage-aware feature registry selectors, compact default/PD target tables, temporal development metadata, logistic WOE scorecard runs for application and behavioural populations, and calibrated behavioural PD artifacts with rating, TTC, lifetime, transition, and backtesting outputs.
+The current project layer contains a lightweight Freddie Mac source inventory, schema drift notes, version-controlled Release 47 source and Silver schemas, a reproducible Bronze Parquet ingestion pipeline, a Silver standardization pipeline, a Gold analytical mart with leakage-aware feature registry selectors, compact default/PD target tables, temporal development metadata, logistic WOE scorecard runs for application and behavioural populations, calibrated behavioural PD artifacts with rating, TTC, lifetime, transition, and backtesting outputs, and forward-looking Base/Upside/Downside PD scenario outputs.
 
 ## Dataset
 
@@ -92,6 +92,12 @@ Build calibrated PD artifacts from an existing scorecard run:
 
 ```bash
 poetry run ifrs9 build-pd --scorecard-run behavioural_qe_v1
+```
+
+Build forward-looking PD scenario artifacts from an existing PD run:
+
+```bash
+poetry run ifrs9 build-forward-looking --pd-run pd_behavioural_qe_v1
 ```
 
 Run quality checks after the environment is installed:
