@@ -12,7 +12,11 @@ from ifrs9.lgd.framework import (
     OUTCOME_EXCLUDED_COLUMNS,
     _actual_loss_reconciliation,
     _add_lgd_targets,
+    _combined_model_selection,
     _component_audit,
+    _component_decomposition,
+    _fit_probability_recalibrator,
+    _temporal_training_weights,
     _validated_predictors,
     build_lgd_episode_dataset,
     load_lgd_run,
@@ -271,7 +275,120 @@ def test_run_lgd_framework_persists_and_reloads(tmp_path: Path) -> None:
     assert Path(result.artifact_path, "actual_loss_reconciliation.csv").exists()
     assert Path(result.artifact_path, "lgd_component_audit.csv").exists()
     assert Path(result.artifact_path, "lgd_distribution_diagnostics.csv").exists()
+    assert Path(result.artifact_path, "component_decomposition.csv").exists()
+    assert Path(result.artifact_path, "predictor_drift.csv").exists()
+    assert Path(result.artifact_path, "cure_model_comparison.csv").exists()
+    assert Path(result.artifact_path, "severity_model_comparison.csv").exists()
+    assert Path(result.artifact_path, "combined_backtest.csv").exists()
     assert episodes["predicted_lgd"].between(0, 1).all()
     assert _validated_predictors(load_lgd_config(repo))
     with pytest.raises(FileExistsError):
         run_lgd_framework(repo_root=repo, run_id="lgd_small")
+
+
+def test_elgd_branch_decomposition_reconciles() -> None:
+    scored = pd.DataFrame(
+        {
+            "split": ["VALIDATION", "VALIDATION"],
+            "resolved_flag": [True, True],
+            "cured_flag": [True, False],
+            "realized_lgd_model_target": [0.2, 0.8],
+            "predicted_cure_probability": [0.75, 0.25],
+            "predicted_cure_lgd": [0.3, 0.3],
+            "predicted_non_cure_lgd": [0.7, 0.7],
+            "predicted_lgd": [0.4, 0.6],
+            "expected_lgd_calibration_factor": [1.0, 1.0],
+        }
+    )
+
+    decomposition = _component_decomposition(scored)
+
+    assert decomposition["predicted_branch_elgd"].iloc[0] == pytest.approx(0.5)
+    assert decomposition["branch_reconciliation_difference"].iloc[0] == pytest.approx(0.0)
+
+
+def test_probability_calibration_uses_supplied_validation_only_sample() -> None:
+    probability = pd.Series([0.2, 0.3, 0.9, 0.95])
+    validation_target = pd.Series([0, 0])
+    oot_target = pd.Series([1, 1])
+
+    validation_only = _fit_probability_recalibrator(probability.iloc[:2], validation_target)
+    with_oot = _fit_probability_recalibrator(
+        probability,
+        pd.concat([validation_target, oot_target]),
+    )
+
+    assert validation_only["method"] == "none"
+    assert with_oot["method"] == "validation_logistic_recalibration"
+
+
+def test_temporal_weighting_prioritizes_recent_defaults() -> None:
+    frame = pd.DataFrame(
+        {
+            "default_date": pd.to_datetime(
+                ["2017-01-01", "2018-01-01", "2018-12-01"]
+            )
+        }
+    )
+
+    assert _temporal_training_weights(frame, "none", None) is None
+    linear = _temporal_training_weights(frame, "linear_recency", None)
+    exponential = _temporal_training_weights(frame, "exponential_recency", 12)
+
+    assert linear[-1] > linear[0]
+    assert exponential[-1] > exponential[0]
+    assert linear.mean() == pytest.approx(1.0)
+    assert exponential.mean() == pytest.approx(1.0)
+
+
+def test_combined_selection_is_deterministic_and_excludes_oot() -> None:
+    scored = pd.DataFrame(
+        {
+            "split": ["VALIDATION", "VALIDATION", "OOT", "OOT"],
+            "resolved_flag": [True, True, True, True],
+            "cured_flag": [False, False, False, False],
+            "realized_lgd_model_target": [0.2, 0.2, 0.9, 0.9],
+        }
+    )
+    cure_candidates = [
+        {
+            "name": "cure_a",
+            "model": object(),
+            "recalibrator": {"method": "none"},
+            "raw_probability": pd.Series([0.0, 0.0, 0.0, 0.0]),
+            "probability": np.array([0.0, 0.0, 0.0, 0.0]),
+            "temporal_weighting": "none",
+        },
+        {
+            "name": "cure_b",
+            "model": object(),
+            "recalibrator": {"method": "none"},
+            "raw_probability": pd.Series([0.0, 0.0, 0.0, 0.0]),
+            "probability": np.array([0.0, 0.0, 0.0, 0.0]),
+            "temporal_weighting": "none",
+        },
+    ]
+    severity_candidates = [
+        {
+            "name": "severity_validation_best",
+            "model": object(),
+            "calibrator": {"method": "none"},
+            "prediction": pd.Series([0.2, 0.2, 0.2, 0.2]),
+            "temporal_weighting": "none",
+        },
+        {
+            "name": "severity_oot_best",
+            "model": object(),
+            "calibrator": {"method": "none"},
+            "prediction": pd.Series([0.1, 0.3, 0.9, 0.9]),
+            "temporal_weighting": "none",
+        },
+    ]
+    cure_lgd = {"prediction": pd.Series([0.0, 0.0, 0.0, 0.0])}
+
+    first = _combined_model_selection(scored, cure_candidates, severity_candidates, cure_lgd)
+    second = _combined_model_selection(scored, cure_candidates, severity_candidates, cure_lgd)
+
+    assert first[0]["severity_model_name"] == "severity_validation_best"
+    assert first[0]["cure_model_name"] == second[0]["cure_model_name"]
+    assert first[0]["severity_model_name"] == second[0]["severity_model_name"]

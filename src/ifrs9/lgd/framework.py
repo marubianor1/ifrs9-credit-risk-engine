@@ -16,10 +16,16 @@ import duckdb
 import numpy as np
 import pandas as pd
 from scipy.special import expit, logit
+from sklearn.base import clone
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression, LogisticRegression
-from sklearn.metrics import mean_absolute_error, mean_squared_error, roc_auc_score
+from sklearn.metrics import (
+    brier_score_loss,
+    mean_absolute_error,
+    mean_squared_error,
+    roc_auc_score,
+)
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
@@ -45,6 +51,13 @@ RECONCILIATION_COMPONENTS = [
     "non_mi_recoveries",
     "total_expenses",
     "delinquent_accrued_interest",
+]
+TEMPORAL_WEIGHT_CANDIDATES = [
+    {"method": "none", "decay_months": None},
+    {"method": "linear_recency", "decay_months": None},
+    {"method": "exponential_recency", "decay_months": 12},
+    {"method": "exponential_recency", "decay_months": 24},
+    {"method": "exponential_recency", "decay_months": 36},
 ]
 OUTCOME_EXCLUDED_COLUMNS = set(
     RECOVERY_COMPONENTS + COST_COMPONENTS + MODIFICATION_COST_COMPONENTS
@@ -125,6 +138,11 @@ def run_lgd_framework(
     segmentation = _segmentation_report(scored, config)
     component_audit = _component_audit(scored)
     distribution_diagnostics = _distribution_diagnostics(scored)
+    component_decomposition = _component_decomposition(scored)
+    predictor_drift = _predictor_drift(scored, config)
+    cure_model_comparison = pd.DataFrame(models["cure_model_comparison"])
+    severity_model_comparison = pd.DataFrame(models["severity_model_comparison"])
+    combined_backtest = pd.DataFrame(models["combined_backtest"])
 
     scored.to_parquet(artifact_dir / "lgd_episodes.parquet", index=False)
     pd.DataFrame(metrics).to_csv(artifact_dir / "model_metrics.csv", index=False)
@@ -141,6 +159,14 @@ def run_lgd_framework(
         artifact_dir / "lgd_distribution_diagnostics.csv",
         index=False,
     )
+    component_decomposition.to_csv(artifact_dir / "component_decomposition.csv", index=False)
+    predictor_drift.to_csv(artifact_dir / "predictor_drift.csv", index=False)
+    cure_model_comparison.to_csv(artifact_dir / "cure_model_comparison.csv", index=False)
+    severity_model_comparison.to_csv(
+        artifact_dir / "severity_model_comparison.csv",
+        index=False,
+    )
+    combined_backtest.to_csv(artifact_dir / "combined_backtest.csv", index=False)
     downturn.to_csv(artifact_dir / "downturn_overlay.csv", index=False)
     segmentation.to_csv(artifact_dir / "segmentation_report.csv", index=False)
     _cashflow_component_summary(scored).to_csv(
@@ -474,69 +500,74 @@ def _fit_models(
 ) -> tuple[dict[str, Pipeline], pd.DataFrame, list[dict[str, Any]]]:
     scored = episodes.copy()
     supervised = scored[scored["resolved_flag"] & scored["ead_at_default"].gt(0)].copy()
-    train = supervised["split"] == "TRAIN"
-    cure_model = _model_pipeline(config.features.numeric, config.features.categorical, "logistic")
-    cure_model.fit(
-        supervised.loc[train, predictors],
-        supervised.loc[train, "cured_flag"].astype(int),
+    cure_candidates, cure_comparison = _fit_cure_challengers(
+        scored,
+        supervised,
+        predictors,
+        config,
     )
-    scored["predicted_cure_probability_raw"] = cure_model.predict_proba(scored[predictors])[:, 1]
-    validation = supervised["split"] == "VALIDATION"
-    cure_recalibrator = _fit_probability_recalibrator(
-        scored.loc[supervised.index[validation], "predicted_cure_probability_raw"],
-        supervised.loc[validation, "cured_flag"].astype(int),
+    severity_candidates, severity_comparison = _fit_severity_challengers(
+        scored,
+        supervised,
+        predictors,
+        config,
     )
-    scored["predicted_cure_probability"] = _apply_probability_recalibrator(
-        scored["predicted_cure_probability_raw"],
-        cure_recalibrator,
+    cure_lgd = _fit_cure_lgd(scored, supervised)
+    combined_candidates = _combined_model_selection(
+        scored,
+        cure_candidates,
+        severity_candidates,
+        cure_lgd,
     )
-
-    non_cure = supervised[~supervised["cured_flag"]].copy()
-    severity_train = non_cure["split"] == "TRAIN"
-    severity_model = _model_pipeline(config.features.numeric, config.features.categorical, "linear")
-    severity_model.fit(
-        non_cure.loc[severity_train, predictors],
-        non_cure.loc[severity_train, "realized_lgd_model_target"],
-    )
-    scored["predicted_non_cure_lgd"] = np.clip(severity_model.predict(scored[predictors]), 0, 1)
-    cure_loss = float(
-        supervised.loc[supervised["cured_flag"], "realized_lgd_model_target"].mean()
-        if supervised["cured_flag"].any()
-        else 0.0
-    )
-    scored["predicted_cure_lgd"] = cure_loss
-    scored["predicted_lgd"] = (
-        scored["predicted_cure_probability"] * scored["predicted_cure_lgd"]
-        + (1 - scored["predicted_cure_probability"]) * scored["predicted_non_cure_lgd"]
-    )
-    scored["predicted_lgd_uncalibrated"] = scored["predicted_lgd"]
-    expected_lgd_factor = _expected_lgd_calibration_factor(scored)
-    scored["predicted_lgd"] = np.clip(scored["predicted_lgd"] * expected_lgd_factor, 0, 1)
-    scored["expected_lgd_calibration_factor"] = expected_lgd_factor
+    selected = combined_candidates[0]
+    scored["predicted_cure_probability_raw"] = selected["raw_cure_probability"]
+    scored["predicted_cure_probability"] = selected["cure_probability"]
+    scored["predicted_cure_lgd"] = selected["cure_lgd"]
+    scored["predicted_non_cure_lgd"] = selected["non_cure_lgd"]
+    scored["predicted_lgd_uncalibrated"] = selected["uncalibrated_lgd"]
+    scored["predicted_lgd"] = selected["predicted_lgd"]
+    scored["expected_lgd_calibration_factor"] = selected["expected_lgd_calibration_factor"]
+    scored["selected_cure_model"] = selected["cure_model_name"]
+    scored["selected_severity_model"] = selected["severity_model_name"]
+    scored["selected_temporal_weighting"] = selected["temporal_weighting"]
     metrics = _model_metrics(scored)
     return {
-        "cure_model": cure_model,
-        "cure_recalibrator": cure_recalibrator,
-        "severity_model": severity_model,
+        "cure_model": selected["cure_model"],
+        "cure_recalibrator": selected["cure_recalibrator"],
+        "severity_model": selected["severity_model"],
+        "severity_calibrator": selected["severity_calibrator"],
+        "cure_lgd": cure_lgd,
         "expected_lgd_calibration": {
             "method": "validation_mean_scaling",
-            "factor": expected_lgd_factor,
+            "factor": selected["expected_lgd_calibration_factor"],
         },
+        "selection": {
+            "cure_model": selected["cure_model_name"],
+            "severity_model": selected["severity_model_name"],
+            "temporal_weighting": selected["temporal_weighting"],
+            "selection_basis": "validation_only",
+        },
+        "cure_model_comparison": cure_comparison,
+        "severity_model_comparison": severity_comparison,
+        "combined_backtest": _combined_backtest_rows(combined_candidates),
     }, scored, metrics
 
 
-def _expected_lgd_calibration_factor(scored: pd.DataFrame) -> float:
+def _expected_lgd_calibration_factor(
+    scored: pd.DataFrame,
+    prediction_column: str = "predicted_lgd",
+) -> float:
     validation = scored[(scored["split"] == "VALIDATION") & scored["resolved_flag"]]
     if validation.empty:
         return 1.0
-    predicted = validation["predicted_lgd"].mean()
+    predicted = validation[prediction_column].mean()
     if not predicted:
         return 1.0
     return float(validation["realized_lgd_model_target"].mean() / predicted)
 
 
 def _fit_probability_recalibrator(probability: pd.Series, target: pd.Series) -> dict[str, float]:
-    if target.nunique() < 2:
+    if target.empty or target.nunique() < 2:
         return {"method": "none", "intercept": 0.0, "coefficient": 1.0}
     model = LogisticRegression(max_iter=300)
     clipped = np.clip(probability.to_numpy(dtype=float), 1e-6, 1 - 1e-6)
@@ -557,6 +588,409 @@ def _apply_probability_recalibrator(
     if calibrator["method"] == "none":
         return clipped
     return expit(calibrator["intercept"] + calibrator["coefficient"] * logit(clipped))
+
+
+def _fit_cure_challengers(
+    scored: pd.DataFrame,
+    supervised: pd.DataFrame,
+    predictors: list[str],
+    config: LGDFrameworkConfig,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    train = supervised["split"] == "TRAIN"
+    validation = supervised["split"] == "VALIDATION"
+    candidates = []
+    comparison = []
+    for weighting in TEMPORAL_WEIGHT_CANDIDATES:
+        model = _model_pipeline(config.features.numeric, config.features.categorical, "logistic")
+        weights = _temporal_training_weights(
+            supervised.loc[train],
+            weighting["method"],
+            weighting["decay_months"],
+        )
+        fit_kwargs = {"model__sample_weight": weights} if weights is not None else {}
+        model.fit(
+            supervised.loc[train, predictors],
+            supervised.loc[train, "cured_flag"].astype(int),
+            **fit_kwargs,
+        )
+        raw_probability = pd.Series(
+            model.predict_proba(scored[predictors])[:, 1],
+            index=scored.index,
+        )
+        raw_candidate = {
+            "name": f"logistic_baseline_{_weight_label(weighting)}",
+            "model": model,
+            "recalibrator": {"method": "none", "intercept": 0.0, "coefficient": 1.0},
+            "raw_probability": raw_probability,
+            "probability": raw_probability.to_numpy(),
+            "temporal_weighting": _weight_label(weighting),
+        }
+        candidates.append(raw_candidate)
+        comparison.extend(_cure_comparison_rows(scored, raw_candidate))
+        recalibrator = _fit_probability_recalibrator(
+            raw_probability.loc[supervised.index[validation]],
+            supervised.loc[validation, "cured_flag"].astype(int),
+        )
+        calibrated_probability = _apply_probability_recalibrator(
+            raw_probability,
+            recalibrator,
+        )
+        name = (
+            "logistic_recalibrated"
+            if weighting["method"] == "none"
+            else f"logistic_recency_weighted_{_weight_label(weighting)}"
+        )
+        calibrated_candidate = {
+            "name": name,
+            "model": model,
+            "recalibrator": recalibrator,
+            "raw_probability": raw_probability,
+            "probability": calibrated_probability,
+            "temporal_weighting": _weight_label(weighting),
+        }
+        candidates.append(calibrated_candidate)
+        comparison.extend(_cure_comparison_rows(scored, calibrated_candidate))
+    return candidates, comparison
+
+
+def _fit_severity_challengers(
+    scored: pd.DataFrame,
+    supervised: pd.DataFrame,
+    predictors: list[str],
+    config: LGDFrameworkConfig,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    non_cure = supervised[~supervised["cured_flag"]].copy()
+    train = non_cure["split"] == "TRAIN"
+    candidates = []
+    comparison = []
+    for weighting in TEMPORAL_WEIGHT_CANDIDATES:
+        weights = _temporal_training_weights(
+            non_cure.loc[train],
+            weighting["method"],
+            weighting["decay_months"],
+        )
+        fit_kwargs = {"model__sample_weight": weights} if weights is not None else {}
+        baseline = _model_pipeline(config.features.numeric, config.features.categorical, "linear")
+        baseline.fit(
+            non_cure.loc[train, predictors],
+            non_cure.loc[train, "realized_lgd_model_target"],
+            **fit_kwargs,
+        )
+        baseline_pred = pd.Series(
+            np.clip(baseline.predict(scored[predictors]), 0, 1),
+            index=scored.index,
+        )
+        baseline_candidate = {
+            "name": f"current_baseline_{_weight_label(weighting)}",
+            "model": baseline,
+            "calibrator": {"method": "none"},
+            "prediction": baseline_pred,
+            "temporal_weighting": _weight_label(weighting),
+        }
+        candidates.append(baseline_candidate)
+        comparison.extend(_severity_comparison_rows(scored, baseline_candidate))
+
+        fractional = clone(baseline)
+        fractional_target = _bounded_logit(non_cure.loc[train, "realized_lgd_model_target"])
+        fractional.fit(non_cure.loc[train, predictors], fractional_target, **fit_kwargs)
+        fractional_pred = pd.Series(
+            expit(fractional.predict(scored[predictors])),
+            index=scored.index,
+        )
+        fractional_candidate = {
+            "name": f"bounded_fractional_logit_{_weight_label(weighting)}",
+            "model": fractional,
+            "calibrator": {"method": "inverse_logit"},
+            "prediction": fractional_pred,
+            "temporal_weighting": _weight_label(weighting),
+        }
+        candidates.append(fractional_candidate)
+        comparison.extend(_severity_comparison_rows(scored, fractional_candidate))
+
+        segment_calibrator = _fit_segment_calibrator(scored, baseline_pred)
+        segment_pred = _apply_segment_calibrator(scored, baseline_pred, segment_calibrator)
+        segment_candidate = {
+            "name": f"segment_calibrated_{_weight_label(weighting)}",
+            "model": baseline,
+            "calibrator": segment_calibrator,
+            "prediction": segment_pred,
+            "temporal_weighting": _weight_label(weighting),
+        }
+        candidates.append(segment_candidate)
+        comparison.extend(_severity_comparison_rows(scored, segment_candidate))
+    return candidates, comparison
+
+
+def _fit_cure_lgd(scored: pd.DataFrame, supervised: pd.DataFrame) -> dict[str, Any]:
+    train_cure = supervised[(supervised["split"] == "TRAIN") & supervised["cured_flag"]]
+    validation_cure = supervised[
+        (supervised["split"] == "VALIDATION") & supervised["cured_flag"]
+    ]
+    if train_cure.empty:
+        train_mean = 0.0
+    else:
+        train_mean = float(train_cure["realized_lgd_model_target"].mean())
+    if validation_cure.empty:
+        calibrated_mean = train_mean
+    else:
+        calibrated_mean = float(validation_cure["realized_lgd_model_target"].mean())
+    return {
+        "method": "validation_calibrated_cure_segment_mean",
+        "train_rows": len(train_cure),
+        "validation_rows": len(validation_cure),
+        "train_mean": train_mean,
+        "calibrated_mean": calibrated_mean,
+        "prediction": pd.Series(calibrated_mean, index=scored.index),
+    }
+
+
+def _combined_model_selection(
+    scored: pd.DataFrame,
+    cure_candidates: list[dict[str, Any]],
+    severity_candidates: list[dict[str, Any]],
+    cure_lgd: dict[str, Any],
+) -> list[dict[str, Any]]:
+    candidates = []
+    for cure in cure_candidates:
+        for severity in severity_candidates:
+            frame = scored.copy()
+            frame["_predicted_cure_probability"] = cure["probability"]
+            frame["_predicted_cure_lgd"] = cure_lgd["prediction"]
+            frame["_predicted_non_cure_lgd"] = severity["prediction"]
+            frame["_predicted_lgd_uncalibrated"] = (
+                frame["_predicted_cure_probability"] * frame["_predicted_cure_lgd"]
+                + (1 - frame["_predicted_cure_probability"])
+                * frame["_predicted_non_cure_lgd"]
+            )
+            factor = _expected_lgd_calibration_factor(
+                frame.rename(columns={"_predicted_lgd_uncalibrated": "_candidate"}),
+                "_candidate",
+            )
+            frame["_predicted_lgd"] = np.clip(
+                frame["_predicted_lgd_uncalibrated"] * factor,
+                0,
+                1,
+            )
+            validation = frame[(frame["split"] == "VALIDATION") & frame["resolved_flag"]]
+            target = validation["realized_lgd_model_target"]
+            predicted = validation["_predicted_lgd"]
+            oe_ratio = target.mean() / predicted.mean() if predicted.mean() else np.nan
+            validation_cure_error = abs(
+                validation["_predicted_cure_probability"].mean()
+                - validation["cured_flag"].mean()
+            )
+            validation_non_cure = validation[~validation["cured_flag"]]
+            validation_severity_oe_error = abs(
+                _mean_ratio(
+                    validation_non_cure["realized_lgd_model_target"],
+                    validation_non_cure["_predicted_non_cure_lgd"],
+                )
+                - 1
+            )
+            candidates.append(
+                {
+                    "cure_model_name": cure["name"],
+                    "severity_model_name": severity["name"],
+                    "temporal_weighting": severity["temporal_weighting"],
+                    "validation_abs_oe_error": abs(oe_ratio - 1),
+                    "validation_cure_abs_calibration_error": validation_cure_error,
+                    "validation_non_cure_abs_oe_error": validation_severity_oe_error,
+                    "validation_mae": mean_absolute_error(target, predicted),
+                    "validation_rmse": mean_squared_error(target, predicted) ** 0.5,
+                    "cure_model": cure["model"],
+                    "cure_recalibrator": cure["recalibrator"],
+                    "severity_model": severity["model"],
+                    "severity_calibrator": severity["calibrator"],
+                    "raw_cure_probability": cure["raw_probability"],
+                    "cure_probability": cure["probability"],
+                    "cure_lgd": cure_lgd["prediction"],
+                    "non_cure_lgd": severity["prediction"],
+                    "uncalibrated_lgd": frame["_predicted_lgd_uncalibrated"],
+                    "predicted_lgd": frame["_predicted_lgd"],
+                    "expected_lgd_calibration_factor": factor,
+                    "combined_metrics": _candidate_backtest_metrics(frame),
+                }
+            )
+    return sorted(
+        candidates,
+        key=lambda item: (
+            item["validation_abs_oe_error"],
+            item["validation_cure_abs_calibration_error"],
+            item["validation_non_cure_abs_oe_error"],
+            item["validation_mae"],
+            item["validation_rmse"],
+            item["cure_model_name"],
+            item["severity_model_name"],
+        ),
+    )
+
+
+def _combined_backtest_rows(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows = []
+    for rank, candidate in enumerate(candidates, start=1):
+        for metrics in candidate["combined_metrics"]:
+            rows.append(
+                {
+                    "selection_rank": rank,
+                    "cure_model": candidate["cure_model_name"],
+                    "severity_model": candidate["severity_model_name"],
+                    "temporal_weighting": candidate["temporal_weighting"],
+                    "expected_lgd_calibration_factor": candidate[
+                        "expected_lgd_calibration_factor"
+                    ],
+                    "validation_abs_oe_error": candidate["validation_abs_oe_error"],
+                    "validation_cure_abs_calibration_error": candidate[
+                        "validation_cure_abs_calibration_error"
+                    ],
+                    "validation_non_cure_abs_oe_error": candidate[
+                        "validation_non_cure_abs_oe_error"
+                    ],
+                    "selected": rank == 1,
+                    **metrics,
+                }
+            )
+    return rows
+
+
+def _candidate_backtest_metrics(frame: pd.DataFrame) -> list[dict[str, Any]]:
+    rows = []
+    for split, group in frame[frame["resolved_flag"]].groupby("split"):
+        target = group["realized_lgd_model_target"]
+        predicted = group["_predicted_lgd"]
+        rows.append(
+            {
+                "split": split,
+                "rows": len(group),
+                "realized_mean_lgd": target.mean(),
+                "predicted_lgd": predicted.mean(),
+                "oe_ratio": target.mean() / predicted.mean() if predicted.mean() else np.nan,
+                "mae": mean_absolute_error(target, predicted),
+                "rmse": mean_squared_error(target, predicted) ** 0.5,
+            }
+        )
+    return rows
+
+
+def _temporal_training_weights(
+    frame: pd.DataFrame,
+    method: str,
+    decay_months: int | None,
+) -> np.ndarray | None:
+    if method == "none" or frame.empty:
+        return None
+    dates = pd.to_datetime(frame["default_date"])
+    age_months = ((dates.max() - dates).dt.days / 30.4375).clip(lower=0)
+    if method == "linear_recency":
+        max_age = max(float(age_months.max()), 1.0)
+        weights = 1.0 + (1.0 - age_months / max_age)
+    elif method == "exponential_recency":
+        decay = float(decay_months or 24)
+        weights = np.exp(-age_months / decay)
+    else:
+        msg = f"Unknown temporal weighting method: {method}"
+        raise ValueError(msg)
+    weights = np.asarray(weights, dtype=float)
+    return weights / weights.mean()
+
+
+def _weight_label(weighting: dict[str, Any]) -> str:
+    if weighting["method"] == "exponential_recency":
+        return f"{weighting['method']}_{weighting['decay_months']}m"
+    return str(weighting["method"])
+
+
+def _bounded_logit(target: pd.Series) -> np.ndarray:
+    return logit(np.clip(target.to_numpy(dtype=float), 1e-4, 1 - 1e-4))
+
+
+def _fit_segment_calibrator(scored: pd.DataFrame, prediction: pd.Series) -> dict[str, Any]:
+    frame = scored[
+        (scored["split"] == "VALIDATION") & scored["resolved_flag"] & ~scored["cured_flag"]
+    ].copy()
+    frame["_prediction"] = prediction.loc[frame.index]
+    global_factor = _mean_ratio(
+        frame["realized_lgd_model_target"],
+        frame["_prediction"],
+    )
+    factors = {}
+    for rating, group in frame.groupby("rating_at_default", observed=True):
+        if len(group) < 50:
+            continue
+        segment_factor = _mean_ratio(group["realized_lgd_model_target"], group["_prediction"])
+        shrinkage = len(group) / (len(group) + 100)
+        factors[str(rating)] = float(shrinkage * segment_factor + (1 - shrinkage) * global_factor)
+    return {
+        "method": "validation_rating_segment_mean",
+        "global_factor": global_factor,
+        "rating_factors": factors,
+    }
+
+
+def _apply_segment_calibrator(
+    scored: pd.DataFrame,
+    prediction: pd.Series,
+    calibrator: dict[str, Any],
+) -> pd.Series:
+    factors = scored["rating_at_default"].astype(str).map(calibrator["rating_factors"])
+    factors = factors.fillna(calibrator["global_factor"])
+    return pd.Series(np.clip(prediction * factors, 0, 1), index=scored.index)
+
+
+def _mean_ratio(actual: pd.Series, predicted: pd.Series) -> float:
+    predicted_mean = predicted.mean()
+    if actual.empty or pd.isna(predicted_mean) or not predicted_mean:
+        return 1.0
+    ratio = actual.mean() / predicted_mean
+    return float(ratio) if pd.notna(ratio) else 1.0
+
+
+def _cure_comparison_rows(scored: pd.DataFrame, candidate: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = []
+    probability = pd.Series(candidate["probability"], index=scored.index)
+    for split, group in scored[scored["resolved_flag"]].groupby("split"):
+        observed = group["cured_flag"].astype(int)
+        predicted = probability.loc[group.index]
+        rows.append(
+            {
+                "model": candidate["name"],
+                "temporal_weighting": candidate["temporal_weighting"],
+                "split": split,
+                "rows": len(group),
+                "auc": roc_auc_score(observed, predicted)
+                if observed.nunique() > 1
+                else np.nan,
+                "brier": brier_score_loss(observed, predicted),
+                "observed_cure_rate": observed.mean(),
+                "predicted_cure_rate": predicted.mean(),
+                "calibration_error": predicted.mean() - observed.mean(),
+            }
+        )
+    return rows
+
+
+def _severity_comparison_rows(
+    scored: pd.DataFrame,
+    candidate: dict[str, Any],
+) -> list[dict[str, Any]]:
+    rows = []
+    prediction = pd.Series(candidate["prediction"], index=scored.index)
+    for split, group in scored[scored["resolved_flag"] & ~scored["cured_flag"]].groupby("split"):
+        target = group["realized_lgd_model_target"]
+        predicted = prediction.loc[group.index]
+        rows.append(
+            {
+                "model": candidate["name"],
+                "temporal_weighting": candidate["temporal_weighting"],
+                "split": split,
+                "rows": len(group),
+                "realized_mean": target.mean(),
+                "predicted_mean": predicted.mean(),
+                "oe_ratio": target.mean() / predicted.mean() if predicted.mean() else np.nan,
+                "mae": mean_absolute_error(target, predicted),
+                "rmse": mean_squared_error(target, predicted) ** 0.5,
+            }
+        )
+    return rows
 
 
 def _model_pipeline(numeric: list[str], categorical: list[str], kind: str) -> Pipeline:
@@ -711,6 +1145,165 @@ def _backtesting_by_split(scored: pd.DataFrame) -> pd.DataFrame:
             }
         )
     return pd.DataFrame(rows)
+
+
+def _component_decomposition(scored: pd.DataFrame) -> pd.DataFrame:
+    rows = []
+    for split, group in scored[scored["resolved_flag"]].groupby("split"):
+        cure = group[group["cured_flag"]]
+        non_cure = group[~group["cured_flag"]]
+        predicted_branch_elgd = (
+            group["predicted_cure_probability"] * group["predicted_cure_lgd"]
+            + (1 - group["predicted_cure_probability"]) * group["predicted_non_cure_lgd"]
+        )
+        factor = group["expected_lgd_calibration_factor"].mean()
+        calibrated_branch_elgd = predicted_branch_elgd * factor
+        rows.append(
+            {
+                "split": split,
+                "rows": len(group),
+                "observed_p_cure": group["cured_flag"].mean(),
+                "observed_lgd_cure": cure["realized_lgd_model_target"].mean()
+                if len(cure)
+                else np.nan,
+                "observed_p_non_cure": (~group["cured_flag"]).mean(),
+                "observed_lgd_non_cure": non_cure["realized_lgd_model_target"].mean()
+                if len(non_cure)
+                else np.nan,
+                "observed_combined_lgd": group["realized_lgd_model_target"].mean(),
+                "predicted_p_cure": group["predicted_cure_probability"].mean(),
+                "predicted_lgd_cure": group["predicted_cure_lgd"].mean(),
+                "predicted_p_non_cure": 1 - group["predicted_cure_probability"].mean(),
+                "predicted_lgd_non_cure": group["predicted_non_cure_lgd"].mean(),
+                "predicted_branch_elgd": predicted_branch_elgd.mean(),
+                "expected_lgd_calibration_factor": factor,
+                "calibrated_branch_elgd": calibrated_branch_elgd.mean(),
+                "predicted_combined_lgd": group["predicted_lgd"].mean(),
+                "branch_reconciliation_difference": calibrated_branch_elgd.mean()
+                - group["predicted_lgd"].mean(),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _predictor_drift(scored: pd.DataFrame, config: LGDFrameworkConfig) -> pd.DataFrame:
+    rows = []
+    baseline = scored[scored["split"] == "TRAIN"]
+    for column in config.features.numeric + ["default_year"]:
+        if column in scored.columns:
+            rows.extend(_numeric_drift_rows(scored, baseline, column))
+    for column in config.features.categorical + ["current_ltv_band"]:
+        if column in scored.columns:
+            rows.extend(_categorical_drift_rows(scored, baseline, column, "predictor"))
+    if "resolution_type" in scored.columns:
+        rows.extend(
+            _categorical_drift_rows(
+                scored,
+                baseline,
+                "resolution_type",
+                "outcome_diagnostic",
+            )
+        )
+    return pd.DataFrame(rows)
+
+
+def _numeric_drift_rows(
+    scored: pd.DataFrame,
+    baseline: pd.DataFrame,
+    column: str,
+) -> list[dict[str, Any]]:
+    rows = []
+    reference = baseline[column]
+    bins = _numeric_bins(reference)
+    reference_distribution = _binned_distribution(reference, bins)
+    for split, group in scored.groupby("split"):
+        values = group[column]
+        distribution = _binned_distribution(values, bins)
+        psi = _psi(reference_distribution, distribution)
+        rows.append(
+            {
+                "feature": column,
+                "feature_type": "numeric",
+                "split": split,
+                "psi_vs_train": psi,
+                "missing_rate": values.isna().mean(),
+                "train_missing_rate": reference.isna().mean(),
+                "mean": values.mean(),
+                "train_mean": reference.mean(),
+                "p25": values.quantile(0.25),
+                "median": values.median(),
+                "p75": values.quantile(0.75),
+                "top_category": np.nan,
+                "top_category_share": np.nan,
+                "unstable_flag": psi >= 0.25,
+            }
+        )
+    return rows
+
+
+def _categorical_drift_rows(
+    scored: pd.DataFrame,
+    baseline: pd.DataFrame,
+    column: str,
+    feature_type: str,
+) -> list[dict[str, Any]]:
+    rows = []
+    reference_distribution = _category_distribution(baseline[column])
+    for split, group in scored.groupby("split"):
+        values = group[column]
+        distribution = _category_distribution(values)
+        shares = values.fillna("__MISSING__").astype(str).value_counts(normalize=True)
+        top_category = shares.index[0] if not shares.empty else np.nan
+        rows.append(
+            {
+                "feature": column,
+                "feature_type": feature_type,
+                "split": split,
+                "psi_vs_train": _psi(reference_distribution, distribution),
+                "missing_rate": values.isna().mean(),
+                "train_missing_rate": baseline[column].isna().mean(),
+                "mean": np.nan,
+                "train_mean": np.nan,
+                "p25": np.nan,
+                "median": np.nan,
+                "p75": np.nan,
+                "top_category": top_category,
+                "top_category_share": shares.iloc[0] if not shares.empty else np.nan,
+                "unstable_flag": _psi(reference_distribution, distribution) >= 0.25,
+            }
+        )
+    return rows
+
+
+def _numeric_bins(series: pd.Series) -> np.ndarray:
+    clean = series.dropna()
+    if clean.empty:
+        return np.array([-np.inf, np.inf])
+    quantiles = clean.quantile(np.linspace(0, 1, 11)).to_numpy()
+    bins = np.unique(quantiles)
+    if len(bins) < 2:
+        value = bins[0]
+        return np.array([-np.inf, value, np.inf])
+    bins[0] = -np.inf
+    bins[-1] = np.inf
+    return bins
+
+
+def _binned_distribution(series: pd.Series, bins: np.ndarray) -> pd.Series:
+    bucket = pd.cut(series, bins=bins, include_lowest=True).astype(str)
+    bucket = bucket.where(series.notna(), "__MISSING__")
+    return bucket.value_counts(normalize=True)
+
+
+def _category_distribution(series: pd.Series) -> pd.Series:
+    return series.fillna("__MISSING__").astype(str).value_counts(normalize=True)
+
+
+def _psi(reference: pd.Series, observed: pd.Series) -> float:
+    categories = reference.index.union(observed.index)
+    expected = reference.reindex(categories, fill_value=0.0).clip(lower=1e-6)
+    actual = observed.reindex(categories, fill_value=0.0).clip(lower=1e-6)
+    return float(((actual - expected) * np.log(actual / expected)).sum())
 
 
 def _observed_predicted(scored: pd.DataFrame, keys: list[str]) -> pd.DataFrame:

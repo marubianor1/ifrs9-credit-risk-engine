@@ -110,9 +110,32 @@ P(cure) * LGD_cure
 + (1 - P(cure)) * LGD_non_cure
 ```
 
+The framework persists `component_decomposition.csv` to reconcile this equation by split.
+The decomposition reports observed and predicted cure probability, cure LGD,
+non-cure probability, non-cure LGD, the combined expected LGD, and the calibration
+factor used for the selected specification.
+
 ## Models
 
-The cure model is logistic regression. The non-cure severity model is a linear-regression baseline fitted to the bounded LGD target.
+The cure model challenger set keeps the interpretable logistic baseline and adds:
+
+- validation-recalibrated logistic regression;
+- recency-weighted logistic regression with validation-only calibration.
+
+The non-cure severity challenger set includes:
+
+- the current linear-regression baseline;
+- a bounded fractional-logit challenger fitted through a logit-transformed target;
+- a rating-segment-calibrated challenger.
+
+Temporal training weights support:
+
+- `none`;
+- `linear_recency`;
+- `exponential_recency`.
+
+Decay choices are selected using TRAIN and VALIDATION only. OOT is scored only after
+selection as an unbiased holdout.
 
 Models fit TRAIN only. VALIDATION and OOT are scored but not used for fitting. Outcome and recovery fields are excluded from predictors.
 
@@ -149,9 +172,21 @@ Backtesting reports by split:
 - cure rate;
 - realized mean and median LGD;
 - predicted LGD;
+- observed-to-expected ratio;
 - MAE and RMSE.
 
 Additional outputs compare observed and predicted LGD by rating, default year, and resolution type. Recovery timing is reported by split and resolution type.
+
+Model comparison outputs are persisted as:
+
+- `cure_model_comparison.csv`;
+- `severity_model_comparison.csv`;
+- `combined_backtest.csv`;
+- `predictor_drift.csv`.
+
+Predictor drift is measured against TRAIN using PSI, missingness, summary
+statistics, and category mix. Resolution mix is included as an outcome diagnostic
+only, not as a predictor.
 
 ## Reconciliation
 
