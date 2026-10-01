@@ -1,3 +1,63 @@
-ead:
-  status: planned
-
+ead_framework:
+  version: v1
+  default_definition: existing
+  parent_pd_run: pd_behavioural_qe_v1
+  methods:
+    selected: empirical_model
+    candidates:
+      - current_balance
+      - contractual_amortization
+      - empirical_model
+  development:
+    train_end: 2018-12-01
+    validation_end: 2021-12-01
+    oot_end: 2025-03-01
+  horizons:
+    max_months: 360
+    profile_population: latest_per_loan
+    max_profile_observations: 5000
+  target_population:
+    include_non_default_exits: true
+    max_non_default_exit_observations: 10000
+  amortization:
+    interest_rate_floor: 0.0
+    stop_at_maturity: true
+  empirical_model:
+    type: linear_regression
+    target: ead_ratio
+    lower_bound: 0.0
+    upper_bound: 2.0
+  features:
+    numeric:
+      - current_actual_upb
+      - current_interest_rate
+      - remaining_months_to_maturity
+      - original_term
+      - original_upb
+      - current_upb_to_original_upb
+      - estimated_loan_to_value
+      - delinquency_months
+      - max_delinquency_months_to_date
+      - months_delinquent_to_date
+      - months_since_last_delinquency
+      - months_since_origination
+      - months_to_horizon
+      - current_non_interest_bearing_upb
+      - current_interest_bearing_upb
+    categorical:
+      - rating
+      - current_ltv_band
+      - modification_flag
+      - ever_modified_to_date
+      - ever_assistance_to_date
+      - current_assistance_flag
+      - property_state
+      - property_type
+      - occupancy_status
+      - loan_purpose
+      - channel
+  reporting:
+    mape_denominator_floor: 1000.0
+  run:
+    artifact_root: artifacts/ead
+    model_root: models/ead

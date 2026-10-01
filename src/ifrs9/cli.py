@@ -148,6 +148,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Overwrite an existing LGD run with the same run ID",
     )
 
+    ead = subparsers.add_parser("build-ead", help="Build IFRS 9 EAD framework artifacts")
+    ead.add_argument("--config", type=Path, help="Path to EAD framework YAML")
+    ead.add_argument("--run-id", help="Optional deterministic EAD run ID")
+    ead.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite an existing EAD run with the same run ID",
+    )
+
     return parser
 
 
@@ -213,6 +222,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         from ifrs9.lgd.framework import run_lgd_framework
 
         run_lgd_framework(
+            config_path=args.config,
+            run_id=args.run_id,
+            force=args.force,
+        )
+        return 0
+    if args.command == "build-ead":
+        from ifrs9.ead.framework import run_ead_framework
+
+        run_ead_framework(
             config_path=args.config,
             run_id=args.run_id,
             force=args.force,
