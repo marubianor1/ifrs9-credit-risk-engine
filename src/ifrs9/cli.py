@@ -157,6 +157,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="Overwrite an existing EAD run with the same run ID",
     )
 
+    staging = subparsers.add_parser(
+        "build-staging",
+        help="Build IFRS 9 SICR and staging artifacts",
+    )
+    staging.add_argument("--config", type=Path, help="Path to SICR/staging YAML")
+    staging.add_argument("--run-id", help="Optional deterministic SICR/staging run ID")
+    staging.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite an existing SICR/staging run with the same run ID",
+    )
+
     return parser
 
 
@@ -231,6 +243,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         from ifrs9.ead.framework import run_ead_framework
 
         run_ead_framework(
+            config_path=args.config,
+            run_id=args.run_id,
+            force=args.force,
+        )
+        return 0
+    if args.command == "build-staging":
+        from ifrs9.sicr.framework import run_staging
+
+        run_staging(
             config_path=args.config,
             run_id=args.run_id,
             force=args.force,
