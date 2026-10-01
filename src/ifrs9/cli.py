@@ -148,6 +148,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="Overwrite an existing LGD run with the same run ID",
     )
 
+    lgd_forward = subparsers.add_parser(
+        "build-lgd-forward-looking",
+        help="Build forward-looking LGD scenario artifacts",
+    )
+    lgd_forward.add_argument("--config", type=Path, help="Path to forward-looking LGD YAML")
+    lgd_forward.add_argument("--run-id", help="Optional deterministic LGD scenario run ID")
+    lgd_forward.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite an existing forward-looking LGD run with the same run ID",
+    )
+
     ead = subparsers.add_parser("build-ead", help="Build IFRS 9 EAD framework artifacts")
     ead.add_argument("--config", type=Path, help="Path to EAD framework YAML")
     ead.add_argument("--run-id", help="Optional deterministic EAD run ID")
@@ -234,6 +246,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         from ifrs9.lgd.framework import run_lgd_framework
 
         run_lgd_framework(
+            config_path=args.config,
+            run_id=args.run_id,
+            force=args.force,
+        )
+        return 0
+    if args.command == "build-lgd-forward-looking":
+        from ifrs9.lgd.forward_looking import run_lgd_forward_looking
+
+        run_lgd_forward_looking(
             config_path=args.config,
             run_id=args.run_id,
             force=args.force,
