@@ -84,6 +84,16 @@ def run_staging(
         artifact_dir / "reference_pd_diagnostics.csv",
         index=False,
     )
+    _stage3_state_audit(staged).to_csv(artifact_dir / "stage3_state_audit.csv", index=False)
+    _sicr_trigger_exclusivity(staged).to_csv(
+        artifact_dir / "sicr_trigger_exclusivity.csv",
+        index=False,
+    )
+    _pd_relative_change_distribution(staged).to_csv(
+        artifact_dir / "pd_relative_change_distribution.csv",
+        index=False,
+    )
+    _reference_lag_profile(staged).to_csv(artifact_dir / "reference_lag_profile.csv", index=False)
     _write_json(artifact_dir / "config_snapshot.json", config.model_dump())
 
     result = StagingRunResult(
@@ -144,14 +154,22 @@ def _staging_base_sql() -> str:
             p.pd_calibrated_12m AS pd_current,
             p.rating AS rating_current,
             m.vintage_year,
-            m.current_actual_upb AS ead_current,
+            CASE
+                WHEN e.default_entry_date = p.as_of_date THEN {default_ead}
+                ELSE m.current_actual_upb
+            END AS ead_current,
             m.delinquency_months,
             m.ever_modified_to_date,
             m.ever_assistance_to_date,
             m.current_assistance_flag,
             m.as_of_date AS mart_as_of_date,
             s.origination_date,
-            t.default_flag
+            COALESCE(t.default_flag, false) AS default_entry_event,
+            e.default_episode_id,
+            e.default_entry_date,
+            e.cure_date,
+            e.default_reason,
+            e.default_episode_id IS NOT NULL AS active_default_state
         FROM pd_predictions p
         LEFT JOIN gold_loan_month m
           ON p.loan_id = m.loan_id
@@ -163,58 +181,93 @@ def _staging_base_sql() -> str:
           ON p.loan_id = t.loan_id
          AND m.vintage_year = t.vintage_year
          AND p.as_of_date = t.as_of_date
+        LEFT JOIN default_events e
+          ON p.loan_id = e.loan_id
+         AND m.vintage_year = e.vintage_year
+         AND p.as_of_date >= e.default_entry_date
+         AND (e.cure_date IS NULL OR p.as_of_date < e.cure_date)
         WHERE m.loan_id IS NOT NULL
     ),
-    default_rating_lookup AS (
+    active_default_months AS (
         SELECT
             e.loan_id,
+            m.as_of_date,
             e.vintage_year,
-            e.default_entry_date AS as_of_date,
-            p.pd_calibrated_12m AS pd_current,
-            p.rating AS rating_current,
-            row_number() OVER (
-                PARTITION BY e.loan_id, e.vintage_year, e.default_entry_date
-                ORDER BY p.as_of_date DESC
-            ) AS rating_rank
-        FROM default_events e
-        LEFT JOIN pd_predictions p
-          ON e.loan_id = p.loan_id
-         AND p.as_of_date <= e.default_entry_date
-    ),
-    default_rows AS (
-        SELECT
-            e.loan_id,
-            e.default_entry_date AS as_of_date,
-            r.pd_current,
-            r.rating_current,
-            e.vintage_year,
-            {default_ead} AS ead_current,
+            CASE
+                WHEN m.as_of_date = e.default_entry_date THEN {default_ead}
+                ELSE m.current_actual_upb
+            END AS ead_current,
             m.delinquency_months,
             m.ever_modified_to_date,
             m.ever_assistance_to_date,
             m.current_assistance_flag,
             m.as_of_date AS mart_as_of_date,
             s.origination_date,
-            true AS default_flag
+            e.default_episode_id,
+            e.default_entry_date,
+            e.cure_date,
+            e.default_reason
         FROM default_events e
-        LEFT JOIN gold_loan_month m
+        INNER JOIN gold_loan_month m
           ON e.loan_id = m.loan_id
          AND e.vintage_year = m.vintage_year
-         AND e.default_entry_date = m.as_of_date
+         AND m.as_of_date >= e.default_entry_date
+         AND (e.cure_date IS NULL OR m.as_of_date < e.cure_date)
         LEFT JOIN gold_loan_static s
           ON e.loan_id = s.loan_id
          AND e.vintage_year = s.vintage_year
-        LEFT JOIN default_rating_lookup r
-          ON e.loan_id = r.loan_id
-         AND e.vintage_year = r.vintage_year
-         AND e.default_entry_date = r.as_of_date
+        LEFT JOIN pd_predictions p
+          ON e.loan_id = p.loan_id
+         AND m.as_of_date = p.as_of_date
+        WHERE p.loan_id IS NULL
+    ),
+    active_default_rating_lookup AS (
+        SELECT
+            a.loan_id,
+            a.vintage_year,
+            a.as_of_date,
+            p.pd_calibrated_12m AS pd_current,
+            p.rating AS rating_current,
+            row_number() OVER (
+                PARTITION BY a.loan_id, a.vintage_year, a.as_of_date
+                ORDER BY p.as_of_date DESC
+            ) AS rating_rank
+        FROM active_default_months a
+        LEFT JOIN pd_predictions p
+          ON a.loan_id = p.loan_id
+         AND p.as_of_date <= a.as_of_date
+    ),
+    active_default_rows AS (
+        SELECT
+            a.loan_id,
+            a.as_of_date,
+            r.pd_current,
+            r.rating_current,
+            a.vintage_year,
+            a.ead_current,
+            a.delinquency_months,
+            a.ever_modified_to_date,
+            a.ever_assistance_to_date,
+            a.current_assistance_flag,
+            a.mart_as_of_date,
+            a.origination_date,
+            a.as_of_date = a.default_entry_date AS default_entry_event,
+            a.default_episode_id,
+            a.default_entry_date,
+            a.cure_date,
+            a.default_reason,
+            true AS active_default_state
+        FROM active_default_months a
+        LEFT JOIN active_default_rating_lookup r
+          ON a.loan_id = r.loan_id
+         AND a.vintage_year = r.vintage_year
+         AND a.as_of_date = r.as_of_date
          AND r.rating_rank = 1
-        WHERE m.loan_id IS NOT NULL
     ),
     pd_base AS (
         SELECT * FROM pd_scored_rows
         UNION ALL
-        SELECT * FROM default_rows
+        SELECT * FROM active_default_rows
     ),
     reference AS (
         SELECT
@@ -261,9 +314,19 @@ def allocate_stages(frame: pd.DataFrame, config: StagingFrameworkConfig) -> pd.D
         output["rating_current"].map(RATING_NOTCH)
         - output["rating_origination"].map(RATING_NOTCH)
     )
-    output["origination_baseline_available"] = output["pd_origination"].notna()
+    reference_date = pd.to_datetime(output["sicr_reference_date"])
+    as_of_date = pd.to_datetime(output["as_of_date"])
+    output["origination_baseline_available"] = output["pd_origination"].notna() & (
+        reference_date <= as_of_date
+    )
+    if "default_entry_event" not in output:
+        output["default_entry_event"] = output.get("default_flag", False)
+    if "active_default_state" not in output:
+        output["active_default_state"] = output["default_entry_event"]
+    output["default_entry_event"] = output["default_entry_event"].fillna(False).astype(bool)
+    output["active_default_state"] = output["active_default_state"].fillna(False).astype(bool)
     output["stage3_flag"] = (
-        output["default_flag"].fillna(False).astype(bool)
+        output["active_default_state"]
         if config.stage3.default_flag
         else False
     )
@@ -429,6 +492,12 @@ def _staging_output_columns() -> list[str]:
         "rating_origination",
         "rating_current",
         "rating_notch_change",
+        "default_entry_event",
+        "active_default_state",
+        "default_episode_id",
+        "default_entry_date",
+        "cure_date",
+        "default_reason",
         "sicr_reference_date",
         "sicr_reference_pd",
         "sicr_reference_rating",
@@ -498,10 +567,184 @@ def _trigger_distribution(staged: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _stage3_state_audit(staged: pd.DataFrame) -> pd.DataFrame:
+    active = staged[staged["active_default_state"]].copy()
+    if active.empty:
+        return pd.DataFrame(
+            [
+                {
+                    "metric": "stage3_entries",
+                    "value": int(staged["default_entry_event"].sum()),
+                    "ead": staged.loc[staged["default_entry_event"], "ead_current"].sum(),
+                },
+                {"metric": "stage3_active_rows", "value": 0, "ead": 0.0},
+            ]
+        )
+    episode_cols = ["loan_id", "default_episode_id", "default_entry_date", "cure_date"]
+    episode_summary = (
+        active.groupby(episode_cols, dropna=False, observed=True)
+        .agg(active_month_rows=("loan_id", "size"), ead=("ead_current", "sum"))
+        .reset_index()
+    )
+    cured = episode_summary["cure_date"].notna()
+    rows = [
+        {
+            "metric": "stage3_entries",
+            "value": int(staged["default_entry_event"].sum()),
+            "ead": staged.loc[staged["default_entry_event"], "ead_current"].sum(),
+        },
+        {
+            "metric": "stage3_active_rows",
+            "value": int(staged["active_default_state"].sum()),
+            "ead": active["ead_current"].sum(),
+        },
+        {
+            "metric": "average_months_in_stage3",
+            "value": float(episode_summary["active_month_rows"].mean()),
+            "ead": np.nan,
+        },
+        {
+            "metric": "median_months_in_stage3",
+            "value": float(episode_summary["active_month_rows"].median()),
+            "ead": np.nan,
+        },
+        {"metric": "cured_stage3_episodes", "value": int(cured.sum()), "ead": np.nan},
+        {
+            "metric": "unresolved_or_terminal_stage3_episodes",
+            "value": int((~cured).sum()),
+            "ead": np.nan,
+        },
+    ]
+    return pd.DataFrame(rows)
+
+
+def _sicr_trigger_exclusivity(staged: pd.DataFrame) -> pd.DataFrame:
+    trigger_columns = _trigger_columns()
+    frame = staged.copy()
+    trigger_count = frame[trigger_columns].sum(axis=1)
+    rows = []
+    for column in trigger_columns:
+        mask = frame[column] & trigger_count.eq(1)
+        rows.append(
+            {
+                "trigger_set": f"only_{column}",
+                "rows": int(mask.sum()),
+                "ead": frame.loc[mask, "ead_current"].fillna(0).sum(),
+            }
+        )
+    rows.append(
+        {
+            "trigger_set": "overlap_two_or_more",
+            "rows": int(trigger_count.gt(1).sum()),
+            "ead": frame.loc[trigger_count.gt(1), "ead_current"].fillna(0).sum(),
+        }
+    )
+    rows.append(
+        {
+            "trigger_set": "no_stage2_trigger",
+            "rows": int(trigger_count.eq(0).sum()),
+            "ead": frame.loc[trigger_count.eq(0), "ead_current"].fillna(0).sum(),
+        }
+    )
+    combinations = (
+        frame.groupby(trigger_columns, observed=True)
+        .agg(rows=("loan_id", "size"), ead=("ead_current", "sum"))
+        .reset_index()
+    )
+    combinations["trigger_set"] = "none"
+    for column in trigger_columns:
+        prefix = np.where(
+            combinations["trigger_set"].eq("none"),
+            "",
+            combinations["trigger_set"] + "+",
+        )
+        combinations["trigger_set"] = combinations["trigger_set"].mask(
+            combinations[column],
+            prefix + column,
+        )
+    combinations = combinations[["trigger_set", "rows", "ead"]]
+    return pd.concat([pd.DataFrame(rows), combinations], ignore_index=True)
+
+
+def _pd_relative_change_distribution(staged: pd.DataFrame) -> pd.DataFrame:
+    valid = staged["pd_relative_change"].replace([np.inf, -np.inf], np.nan).dropna()
+    rows: list[dict[str, Any]] = [
+        {
+            "metric": "unique_pd_current_values",
+            "bucket": "all",
+            "value": staged["pd_current"].nunique(),
+        },
+        {
+            "metric": "unique_active_rating_grades",
+            "bucket": "all",
+            "value": staged["rating_current"].dropna().nunique(),
+        },
+    ]
+    for quantile in [0.0, 0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99, 1.0]:
+        rows.append(
+            {
+                "metric": "pd_relative_change_quantile",
+                "bucket": f"q{quantile:.2f}",
+                "value": float(valid.quantile(quantile)) if not valid.empty else np.nan,
+            }
+        )
+    bins = [0, 1, 1.5, 2, 3, 5, 10, np.inf]
+    labels = ["0-1x", "1-1.5x", "1.5-2x", "2-3x", "3-5x", "5-10x", ">10x"]
+    binned = pd.cut(valid, bins=bins, labels=labels, include_lowest=True, right=False)
+    for bucket, count in binned.value_counts(sort=False).items():
+        rows.append(
+            {
+                "metric": "pd_relative_change_bucket_rows",
+                "bucket": str(bucket),
+                "value": int(count),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _reference_lag_profile(staged: pd.DataFrame) -> pd.DataFrame:
+    frame = staged.copy()
+    lag = frame["months_origination_to_reference"]
+    labels = ["0m", "1m", "2-3m", "4-6m", ">6m"]
+    frame["reference_lag_band"] = pd.cut(
+        lag,
+        bins=[-np.inf, 0, 1, 3, 6, np.inf],
+        labels=labels,
+        right=True,
+    )
+    unavailable = frame["reference_lag_band"].isna()
+    rows = (
+        frame.loc[~unavailable]
+        .groupby("reference_lag_band", observed=False)
+        .agg(rows=("loan_id", "size"), loans=("loan_id", "nunique"), ead=("ead_current", "sum"))
+        .reset_index()
+    )
+    if unavailable.any():
+        rows = pd.concat(
+            [
+                rows,
+                pd.DataFrame(
+                    [
+                        {
+                            "reference_lag_band": "unavailable",
+                            "rows": int(unavailable.sum()),
+                            "loans": frame.loc[unavailable, "loan_id"].nunique(),
+                            "ead": frame.loc[unavailable, "ead_current"].fillna(0).sum(),
+                        }
+                    ]
+                ),
+            ],
+            ignore_index=True,
+        )
+    return rows
+
+
 def _stage_migrations(staged: pd.DataFrame) -> pd.DataFrame:
-    ordered = staged.sort_values(["loan_id", "as_of_date"]).copy()
+    ordered = staged[["loan_id", "as_of_date", "stage", "ead_current"]].sort_values(
+        ["loan_id", "as_of_date"]
+    )
     ordered["previous_stage"] = ordered.groupby("loan_id")["stage"].shift()
-    migrations = ordered[ordered["previous_stage"].notna()].copy()
+    migrations = ordered.loc[ordered["previous_stage"].notna()].copy()
     migrations["migration"] = (
         "Stage "
         + migrations["previous_stage"].astype(int).astype(str)

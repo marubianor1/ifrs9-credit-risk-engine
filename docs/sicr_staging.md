@@ -30,7 +30,7 @@ sicr_reference_rating
 
 The framework reports the months between origination and the reference observation. It does not backfill current behaviour into origination. If no valid reference PD/rating exists, the origination baseline is marked unavailable and PD-change tests do not fire.
 
-Validated default-entry rows are added separately for Stage 3 using the latest available PD/rating at or before default date. This avoids future leakage while allowing Stage 3 to be represented even when the PD scoring population excludes current-default observations.
+Validated active default loan-month rows are added separately for Stage 3 using the latest available PD/rating at or before each active default month. This avoids future leakage while allowing Stage 3 to persist through the default episode even when the PD scoring population excludes current-default observations.
 
 ## SICR Triggers
 
@@ -55,12 +55,12 @@ The low-credit-risk exemption is optional. If disabled, it has no effect. If ena
 Stage allocation is:
 
 ```text
-Stage 3: validated current default flag
+Stage 3: validated active default state
 Stage 2: not Stage 3 and SICR after configured cure treatment
 Stage 1: otherwise
 ```
 
-Stage 3 takes precedence over every Stage 2 trigger.
+The staging output keeps `default_entry_event` and `active_default_state` separately. Stage 3 starts at the validated default entry date and persists while the default episode is active, ending only at the validated cure date or when the loan leaves the observed performance history unresolved or terminal. Redefault starts a new active Stage 3 episode. Stage 3 takes precedence over every Stage 2 trigger.
 
 ## Cure And Transitions
 
@@ -96,7 +96,11 @@ Core diagnostics include:
 - `trigger_distribution.csv`;
 - `stage_migrations.csv`;
 - `threshold_sensitivity.csv`;
-- `reference_pd_diagnostics.csv`.
+- `reference_pd_diagnostics.csv`;
+- `stage3_state_audit.csv`;
+- `sicr_trigger_exclusivity.csv`;
+- `pd_relative_change_distribution.csv`;
+- `reference_lag_profile.csv`.
 
 ## Sensitivity
 
@@ -114,5 +118,6 @@ Important limitations:
 
 - Behavioural PD reference risk starts at the earliest available scored observation, not true legal origination if no score exists at origination.
 - Stage allocation depends on the quality and cadence of the existing PD scoring population.
-- Stage 3 default-entry rows use latest prior PD/rating where exact default-date scoring is unavailable.
+- Behavioural SICR reference risk is a proxy for initial-recognition risk when no behavioural PD exists at legal origination.
+- Stage 3 active default rows use latest prior PD/rating where exact month scoring is unavailable.
 - No ECL, LGD forward-looking remediation, or lifetime loss engine is implemented here.
