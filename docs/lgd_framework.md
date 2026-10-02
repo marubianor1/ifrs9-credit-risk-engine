@@ -115,6 +115,39 @@ The decomposition reports observed and predicted cure probability, cure LGD,
 non-cure probability, non-cure LGD, the combined expected LGD, and the calibration
 factor used for the selected specification.
 
+Run `lgd_v1_3` replaces the constant cure-LGD assumption with a collateral-driven
+cure severity challenger set. The cure-severity population is limited to resolved
+cured default episodes. Fitting uses TRAIN cured episodes only; VALIDATION is used
+for calibration and model choice; OOT remains held out for final evaluation.
+
+The cure-LGD challenger set includes:
+
+- `segment_mean_baseline`;
+- `bounded_regression`;
+- `fractional_logit_style_regression`.
+
+Candidate predictors are safe point-in-time/default-entry fields, including
+estimated LTV at default, original LTV/CLTV, EAD at default, loan age,
+interest-rate fields, delinquency history, rating, default reason, and
+modification/assistance flags. Outcome, recovery, resolution, and cashflow fields
+are excluded.
+
+The current-LTV proxy is `estimated_loan_to_value_at_default`. Missingness and
+cure LGD by LTV band are persisted in `cure_lgd_ltv_audit.csv`; challenger
+metrics are persisted in `cure_lgd_model_comparison.csv`.
+
+Run `lgd_fl_v2` applies scenario HPI through collateral leverage rather than a
+direct macro-LGD regression:
+
+```text
+cumulative_HPI_change = product(1 + HPI_yoy / 100 / 4) - 1
+stressed_LTV = current_LTV / (1 + cumulative_HPI_change)
+```
+
+The stressed LTV is passed through the selected cure-LGD model. Cure probability
+and non-cure severity remain inherited from `lgd_v1_3`. This produces
+Base/Upside/Downside and probability-weighted LGD without calculating ECL.
+
 ## Models
 
 The cure model challenger set keeps the interpretable logistic baseline and adds:

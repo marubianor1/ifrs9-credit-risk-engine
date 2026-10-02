@@ -1,7 +1,7 @@
 lgd_forward_looking:
   version: v1
   method: macro_overlay
-  parent_lgd_run: lgd_v1_2
+  parent_lgd_run: lgd_v1_3
   scenario_run: forward_looking_pd_behavioural_qe_v1
   calibration_split: VALIDATION
   overlay_floor: 0.0
@@ -21,9 +21,13 @@ lgd_forward_looking:
     systematic_factor: -0.5
   sensitivity:
     hpi_shocks:
-      - -2.0
+      - -20.0
+      - -10.0
+      - -5.0
       - 0.0
-      - 2.0
+      - 5.0
+      - 10.0
+      - 20.0
     unemployment_shocks:
       - -1.0
       - 0.0

@@ -8,6 +8,7 @@ from ifrs9.lgd.forward_looking import (
     LGDForwardLookingConfig,
     LGDForwardOutputConfig,
     LGDForwardSensitivityConfig,
+    _add_cumulative_hpi_change,
     _apply_historical_overlay,
     _fit_overlay,
     _historical_lgd_regime_dataset,
@@ -175,17 +176,6 @@ def test_sensitivity_and_run_reload(tmp_path: Path) -> None:
     config = _config()
     historical = _historical_lgd_regime_dataset(_episodes(), _macro(), config)
     overlay = _fit_overlay(historical, config)
-    rating_base = pd.DataFrame(
-        {
-            "rating": ["R1"],
-            "lgd_base_structural": [0.3],
-            "predicted_cure_probability": [0.5],
-            "predicted_cure_lgd": [0.1],
-            "predicted_non_cure_lgd": [0.5],
-            "observed_lgd": [0.3],
-            "rows": [10],
-        }
-    )
     scenario_macro = pd.DataFrame(
         {
             "scenario": ["BASE"],
@@ -199,7 +189,7 @@ def test_sensitivity_and_run_reload(tmp_path: Path) -> None:
         }
     )
 
-    sensitivity = _scenario_sensitivity(rating_base, scenario_macro, overlay, config)
+    sensitivity = _scenario_sensitivity(_episodes(), scenario_macro, overlay, config)
     assert len(sensitivity) == 9
 
     repo = tmp_path / "repo"
@@ -211,3 +201,20 @@ def test_sensitivity_and_run_reload(tmp_path: Path) -> None:
     )
     (run_dir / "run.json").write_text('{"run_id": "lgd_fl_v1"}\n')
     assert load_lgd_forward_run(repo, "lgd_fl_v1")["run_id"] == "lgd_fl_v1"
+
+
+def test_hpi_down_increases_stressed_ltv() -> None:
+    scenario_macro = pd.DataFrame(
+        {
+            "scenario": ["DOWNSIDE", "DOWNSIDE"],
+            "date": pd.to_datetime(["2025-03-31", "2025-06-30"]),
+            "scenario_weight": [1.0, 1.0],
+            "house_price_index_yoy": [-20.0, -20.0],
+        }
+    )
+    output = _add_cumulative_hpi_change(scenario_macro)
+    starting_ltv = 80.0
+    stressed_ltv = starting_ltv / (1 + output["cumulative_hpi_change"].iloc[-1])
+
+    assert output["cumulative_hpi_change"].iloc[-1] < 0
+    assert stressed_ltv > starting_ltv

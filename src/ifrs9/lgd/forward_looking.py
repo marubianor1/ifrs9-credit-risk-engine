@@ -206,10 +206,24 @@ def simulate_lgd_scenario(
         for column, shock in overrides.items():
             if column in scenario_macro.columns:
                 scenario_macro[column] = scenario_macro[column] + float(shock)
-    rating_base = _rating_structural_base(base_episodes)
-    scenario_lgd = _scenario_lgd_by_rating(rating_base, scenario_macro, fitted, config)
+    cure_model = _load_cure_lgd_model(root, config.parent_lgd_run)
+    if cure_model["model"] is not None:
+        scenario_lgd = _scenario_lgd_from_stressed_ltv(
+            base_episodes,
+            scenario_macro,
+            cure_model,
+        )
+    else:
+        rating_base = _rating_structural_base(base_episodes)
+        scenario_lgd = _scenario_lgd_by_rating(rating_base, scenario_macro, fitted, config)
     weighted = _weighted_scenario_lgd(scenario_lgd)
-    sensitivity = _scenario_sensitivity(rating_base, scenario_macro, fitted, config)
+    sensitivity = _scenario_sensitivity(
+        base_episodes,
+        scenario_macro,
+        fitted,
+        config,
+        cure_model,
+    )
     return LGDScenarioResult(scenario_lgd, weighted, sensitivity)
 
 
@@ -478,6 +492,70 @@ def _scenario_lgd_by_rating(
     return pd.DataFrame(rows)
 
 
+def _scenario_lgd_from_stressed_ltv(
+    episodes: pd.DataFrame,
+    scenario_macro: pd.DataFrame,
+    cure_model: dict[str, Any],
+) -> pd.DataFrame:
+    rows = []
+    scenario_macro = _add_cumulative_hpi_change(scenario_macro)
+    features = cure_model["features"]
+    factor = cure_model["calibrator"].get("factor", 1.0)
+    for macro_row in scenario_macro.itertuples(index=False):
+        stressed = episodes.copy()
+        hpi_change = float(macro_row.cumulative_hpi_change)
+        denominator = max(1 + hpi_change, 0.05)
+        stressed["stressed_ltv"] = (
+            stressed["estimated_loan_to_value_at_default"] / denominator
+        ).clip(0, 300)
+        if "estimated_loan_to_value_at_default" in features:
+            stressed["estimated_loan_to_value_at_default"] = stressed["stressed_ltv"]
+        cure_lgd = pd.Series(
+            np.clip(cure_model["model"].predict(stressed[features]) * factor, 0, 1),
+            index=stressed.index,
+        )
+        branch_elgd = (
+            stressed["predicted_cure_probability"] * cure_lgd
+            + (1 - stressed["predicted_cure_probability"])
+            * stressed["predicted_non_cure_lgd"]
+        )
+        calibration = stressed.get(
+            "expected_lgd_calibration_factor",
+            pd.Series(1.0, index=stressed.index),
+        )
+        stressed["scenario_cure_lgd"] = cure_lgd
+        stressed["scenario_non_cure_lgd"] = stressed["predicted_non_cure_lgd"]
+        stressed["lgd_scenario"] = np.clip(branch_elgd * calibration, 0, 1)
+        for rating, group in stressed.groupby("rating_at_default", observed=True):
+            rows.append(
+                {
+                    "scenario": macro_row.scenario,
+                    "date": macro_row.date,
+                    "rating": rating,
+                    "lgd_base_structural": group["predicted_lgd"].mean(),
+                    "predicted_cure_probability": group["predicted_cure_probability"].mean(),
+                    "scenario_cure_lgd": group["scenario_cure_lgd"].mean(),
+                    "scenario_non_cure_lgd": group["scenario_non_cure_lgd"].mean(),
+                    "macro_overlay": 1.0,
+                    "cumulative_hpi_change": hpi_change,
+                    "mean_stressed_ltv": group["stressed_ltv"].mean(),
+                    "lgd_scenario": group["lgd_scenario"].mean(),
+                    "scenario_weight": macro_row.scenario_weight,
+                    "weighted_lgd": group["lgd_scenario"].mean() * macro_row.scenario_weight,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def _add_cumulative_hpi_change(scenario_macro: pd.DataFrame) -> pd.DataFrame:
+    frame = scenario_macro.sort_values(["scenario", "date"]).copy()
+    quarterly_growth = frame["house_price_index_yoy"].fillna(0) / 100 / 4
+    frame["cumulative_hpi_change"] = (
+        (1 + quarterly_growth).groupby(frame["scenario"]).cumprod() - 1
+    )
+    return frame
+
+
 def _weighted_scenario_lgd(scenario_lgd: pd.DataFrame) -> pd.DataFrame:
     return (
         scenario_lgd.groupby(["date", "rating"], observed=True)
@@ -491,19 +569,24 @@ def _weighted_scenario_lgd(scenario_lgd: pd.DataFrame) -> pd.DataFrame:
 
 
 def _scenario_sensitivity(
-    rating_base: pd.DataFrame,
+    episodes: pd.DataFrame,
     scenario_macro: pd.DataFrame,
     overlay: dict[str, Any],
     config: LGDForwardLookingConfig,
+    cure_model: dict[str, Any] | None = None,
 ) -> pd.DataFrame:
     rows = []
-    base_mean = rating_base["lgd_base_structural"].mean()
+    base_mean = episodes["predicted_lgd"].mean()
     for hpi in config.sensitivity.hpi_shocks:
         for unemployment in config.sensitivity.unemployment_shocks:
             shocked = scenario_macro.copy()
             shocked["house_price_index_yoy"] = shocked["house_price_index_yoy"] + hpi
             shocked["unemployment_rate"] = shocked["unemployment_rate"] + unemployment
-            scenario = _scenario_lgd_by_rating(rating_base, shocked, overlay, config)
+            if cure_model and cure_model["model"] is not None:
+                scenario = _scenario_lgd_from_stressed_ltv(episodes, shocked, cure_model)
+            else:
+                rating_base = _rating_structural_base(episodes)
+                scenario = _scenario_lgd_by_rating(rating_base, shocked, overlay, config)
             rows.append(
                 {
                     "hpi_shock": hpi,
@@ -623,6 +706,20 @@ def _load_overlay_model(repo_root: Path, config: LGDForwardLookingConfig) -> dic
     with candidates[-1].open("rb") as stream:
         payload = pickle.load(stream)
     return payload["overlay"]
+
+
+def _load_cure_lgd_model(repo_root: Path, lgd_run_id: str) -> dict[str, Any]:
+    path = repo_root / "models" / "lgd" / lgd_run_id / "lgd_models.pkl"
+    if not path.exists():
+        return {"model": None, "features": [], "calibrator": {"factor": 1.0}}
+    with path.open("rb") as stream:
+        payload = pickle.load(stream)
+    cure_lgd = payload["models"].get("cure_lgd", {})
+    return {
+        "model": cure_lgd.get("model"),
+        "features": cure_lgd.get("features", []),
+        "calibrator": cure_lgd.get("calibrator", {"factor": 1.0}),
+    }
 
 
 def _git_state(repo_root: Path) -> dict[str, str]:

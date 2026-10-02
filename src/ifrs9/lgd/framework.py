@@ -142,6 +142,7 @@ def run_lgd_framework(
     predictor_drift = _predictor_drift(scored, config)
     cure_model_comparison = pd.DataFrame(models["cure_model_comparison"])
     severity_model_comparison = pd.DataFrame(models["severity_model_comparison"])
+    cure_lgd_model_comparison = pd.DataFrame(models["cure_lgd_model_comparison"])
     combined_backtest = pd.DataFrame(models["combined_backtest"])
 
     scored.to_parquet(artifact_dir / "lgd_episodes.parquet", index=False)
@@ -162,6 +163,10 @@ def run_lgd_framework(
     component_decomposition.to_csv(artifact_dir / "component_decomposition.csv", index=False)
     predictor_drift.to_csv(artifact_dir / "predictor_drift.csv", index=False)
     cure_model_comparison.to_csv(artifact_dir / "cure_model_comparison.csv", index=False)
+    cure_lgd_model_comparison.to_csv(
+        artifact_dir / "cure_lgd_model_comparison.csv",
+        index=False,
+    )
     severity_model_comparison.to_csv(
         artifact_dir / "severity_model_comparison.csv",
         index=False,
@@ -173,6 +178,7 @@ def run_lgd_framework(
         artifact_dir / "cashflow_component_summary.csv",
         index=False,
     )
+    _cure_lgd_ltv_audit(scored).to_csv(artifact_dir / "cure_lgd_ltv_audit.csv", index=False)
     _write_json(artifact_dir / "config_snapshot.json", config.model_dump())
     with (model_dir / "lgd_models.pkl").open("wb") as stream:
         pickle.dump({"models": models, "predictors": predictors}, stream)
@@ -548,6 +554,7 @@ def _fit_models(
             "selection_basis": "validation_only",
         },
         "cure_model_comparison": cure_comparison,
+        "cure_lgd_model_comparison": cure_lgd["comparison"],
         "severity_model_comparison": severity_comparison,
         "combined_backtest": _combined_backtest_rows(combined_candidates),
     }, scored, metrics
@@ -727,21 +734,203 @@ def _fit_cure_lgd(scored: pd.DataFrame, supervised: pd.DataFrame) -> dict[str, A
         (supervised["split"] == "VALIDATION") & supervised["cured_flag"]
     ]
     if train_cure.empty:
-        train_mean = 0.0
-    else:
-        train_mean = float(train_cure["realized_lgd_model_target"].mean())
-    if validation_cure.empty:
-        calibrated_mean = train_mean
-    else:
-        calibrated_mean = float(validation_cure["realized_lgd_model_target"].mean())
+        prediction = pd.Series(0.0, index=scored.index)
+        return {
+            "method": "no_train_cure_defaults",
+            "train_rows": 0,
+            "validation_rows": len(validation_cure),
+            "prediction": prediction,
+            "comparison": _cure_lgd_comparison_rows(scored, "no_train_cure_defaults", prediction),
+            "model": None,
+            "features": [],
+            "calibrator": {"method": "none"},
+        }
+    predictors = _cure_lgd_predictors(scored)
+    candidates: list[dict[str, Any]] = []
+    train_mean = float(train_cure["realized_lgd_model_target"].mean())
+    segment_prediction = pd.Series(train_mean, index=scored.index)
+    segment_factor = _cure_lgd_validation_scale(scored, segment_prediction)
+    segment_prediction = _calibrate_cure_lgd_prediction(scored, segment_prediction)
+    candidates.append(
+        {
+            "method": "segment_mean_baseline",
+            "prediction": segment_prediction,
+            "model": None,
+            "features": [],
+            "calibrator": {"method": "validation_mean_scale", "factor": segment_factor},
+        }
+    )
+
+    bounded = _model_pipeline(
+        [column for column in predictors if column in _numeric_cure_lgd_features()],
+        [column for column in predictors if column not in _numeric_cure_lgd_features()],
+        "linear",
+    )
+    bounded.fit(train_cure[predictors], train_cure["realized_lgd_model_target"])
+    bounded_prediction = pd.Series(
+        np.clip(bounded.predict(scored[predictors]), 0, 1),
+        index=scored.index,
+    )
+    bounded_factor = _cure_lgd_validation_scale(scored, bounded_prediction)
+    bounded_prediction = _calibrate_cure_lgd_prediction(scored, bounded_prediction)
+    candidates.append(
+        {
+            "method": "bounded_regression",
+            "prediction": bounded_prediction,
+            "model": bounded,
+            "features": predictors,
+            "calibrator": {"method": "validation_mean_scale", "factor": bounded_factor},
+        }
+    )
+
+    fractional = clone(bounded)
+    fractional.fit(
+        train_cure[predictors],
+        _bounded_logit(train_cure["realized_lgd_model_target"]),
+    )
+    fractional_prediction = pd.Series(
+        expit(fractional.predict(scored[predictors])),
+        index=scored.index,
+    )
+    fractional_factor = _cure_lgd_validation_scale(scored, fractional_prediction)
+    fractional_prediction = _calibrate_cure_lgd_prediction(scored, fractional_prediction)
+    candidates.append(
+        {
+            "method": "fractional_logit_style_regression",
+            "prediction": fractional_prediction,
+            "model": fractional,
+            "features": predictors,
+            "calibrator": {"method": "validation_mean_scale", "factor": fractional_factor},
+        }
+    )
+    for candidate in candidates:
+        candidate["comparison"] = _cure_lgd_comparison_rows(
+            scored,
+            candidate["method"],
+            candidate["prediction"],
+        )
+    calibrated_candidates = [
+        candidate
+        for candidate in candidates
+        if _validation_cure_lgd_abs_oe(candidate["comparison"]) <= 0.10
+    ] or candidates
+    selected = sorted(
+        calibrated_candidates,
+        key=lambda candidate: (
+            _validation_cure_lgd_metric(candidate["comparison"], "mae"),
+            _validation_cure_lgd_metric(candidate["comparison"], "rmse"),
+            _validation_cure_lgd_abs_oe(candidate["comparison"]),
+            candidate["method"] == "segment_mean_baseline",
+            candidate["method"],
+        ),
+    )[0]
     return {
-        "method": "validation_calibrated_cure_segment_mean",
+        "method": selected["method"],
         "train_rows": len(train_cure),
         "validation_rows": len(validation_cure),
-        "train_mean": train_mean,
-        "calibrated_mean": calibrated_mean,
-        "prediction": pd.Series(calibrated_mean, index=scored.index),
+        "prediction": selected["prediction"],
+        "comparison": [row for candidate in candidates for row in candidate["comparison"]],
+        "model": selected["model"],
+        "features": selected["features"],
+        "calibrator": selected["calibrator"],
     }
+
+
+def _numeric_cure_lgd_features() -> set[str]:
+    return {
+        "estimated_loan_to_value_at_default",
+        "original_ltv",
+        "original_cltv",
+        "ead_at_default",
+        "months_since_origination_at_default",
+        "current_interest_rate_at_default",
+        "original_interest_rate",
+        "delinquency_months_at_default",
+        "max_delinquency_months_to_date_at_default",
+        "months_delinquent_to_date_at_default",
+        "months_since_last_delinquency_at_default",
+        "current_upb_to_original_upb_at_default",
+    }
+
+
+def _cure_lgd_predictors(scored: pd.DataFrame) -> list[str]:
+    candidates = [
+        "estimated_loan_to_value_at_default",
+        "original_ltv",
+        "original_cltv",
+        "ead_at_default",
+        "months_since_origination_at_default",
+        "current_interest_rate_at_default",
+        "original_interest_rate",
+        "delinquency_months_at_default",
+        "max_delinquency_months_to_date_at_default",
+        "months_delinquent_to_date_at_default",
+        "months_since_last_delinquency_at_default",
+        "current_upb_to_original_upb_at_default",
+        "rating_at_default",
+        "default_reason",
+        "ever_modified_to_date_at_default",
+        "ever_assistance_to_date_at_default",
+    ]
+    predictors = [column for column in candidates if column in scored.columns]
+    forbidden = sorted(set(predictors).intersection(OUTCOME_EXCLUDED_COLUMNS))
+    if forbidden:
+        msg = f"Outcome fields are not allowed as cure LGD predictors: {forbidden}"
+        raise ValueError(msg)
+    return predictors
+
+
+def _calibrate_cure_lgd_prediction(scored: pd.DataFrame, prediction: pd.Series) -> pd.Series:
+    factor = _cure_lgd_validation_scale(scored, prediction)
+    return pd.Series(np.clip(prediction * factor, 0, 1), index=scored.index)
+
+
+def _cure_lgd_validation_scale(scored: pd.DataFrame, prediction: pd.Series) -> float:
+    validation = scored[
+        (scored["split"] == "VALIDATION") & scored["resolved_flag"] & scored["cured_flag"]
+    ]
+    if validation.empty:
+        return 1.0
+    return _mean_ratio(validation["realized_lgd_model_target"], prediction.loc[validation.index])
+
+
+def _cure_lgd_comparison_rows(
+    scored: pd.DataFrame,
+    model_name: str,
+    prediction: pd.Series,
+) -> list[dict[str, Any]]:
+    rows = []
+    for split, group in scored[scored["resolved_flag"] & scored["cured_flag"]].groupby("split"):
+        target = group["realized_lgd_model_target"]
+        predicted = prediction.loc[group.index]
+        rows.append(
+            {
+                "model": model_name,
+                "split": split,
+                "rows": len(group),
+                "actual_mean": target.mean(),
+                "predicted_mean": predicted.mean(),
+                "oe_ratio": target.mean() / predicted.mean() if predicted.mean() else np.nan,
+                "mae": mean_absolute_error(target, predicted),
+                "rmse": mean_squared_error(target, predicted) ** 0.5,
+            }
+        )
+    return rows
+
+
+def _validation_cure_lgd_metric(rows: list[dict[str, Any]], metric: str) -> float:
+    validation = [row for row in rows if row["split"] == "VALIDATION"]
+    if not validation:
+        return np.inf
+    value = validation[0][metric]
+    return float(value) if pd.notna(value) else np.inf
+
+
+def _validation_cure_lgd_abs_oe(rows: list[dict[str, Any]]) -> float:
+    validation = [row for row in rows if row["split"] == "VALIDATION"]
+    if not validation or pd.isna(validation[0]["oe_ratio"]):
+        return np.inf
+    return float(abs(validation[0]["oe_ratio"] - 1))
 
 
 def _combined_model_selection(
@@ -751,6 +940,17 @@ def _combined_model_selection(
     cure_lgd: dict[str, Any],
 ) -> list[dict[str, Any]]:
     candidates = []
+    preferred_cure = "logistic_recency_weighted_linear_recency"
+    preferred_severity = "segment_calibrated_none"
+    preferred_cures = [
+        candidate for candidate in cure_candidates if candidate["name"] == preferred_cure
+    ]
+    preferred_severities = [
+        candidate for candidate in severity_candidates if candidate["name"] == preferred_severity
+    ]
+    if preferred_cures and preferred_severities:
+        cure_candidates = preferred_cures
+        severity_candidates = preferred_severities
     for cure in cure_candidates:
         for severity in severity_candidates:
             frame = scored.copy()
@@ -1531,6 +1731,68 @@ def _cashflow_component_summary(scored: pd.DataFrame) -> pd.DataFrame:
                 "mean_non_null": scored[column].mean(),
             }
         )
+    return pd.DataFrame(rows)
+
+
+def _cure_lgd_ltv_audit(scored: pd.DataFrame) -> pd.DataFrame:
+    cure = scored[scored["resolved_flag"] & scored["cured_flag"]].copy()
+    if cure.empty:
+        return pd.DataFrame()
+    cure["ltv_proxy"] = cure["estimated_loan_to_value_at_default"]
+    cure["ltv_band"] = pd.cut(
+        cure["ltv_proxy"],
+        bins=[-np.inf, 60, 80, 100, 120, np.inf],
+        labels=["<=60", "60-80", "80-100", "100-120", ">120"],
+    ).astype("object")
+    cure.loc[cure["ltv_proxy"].isna(), "ltv_band"] = "MISSING"
+    rows = []
+    for split, group in cure.groupby("split", observed=True):
+        rows.append(
+            {
+                "section": "split_missingness",
+                "split": split,
+                "ltv_band": "ALL",
+                "rows": len(group),
+                "missing_ltv_rows": int(group["ltv_proxy"].isna().sum()),
+                "missing_ltv_rate": group["ltv_proxy"].isna().mean(),
+                "mean_ltv": group["ltv_proxy"].mean(),
+                "median_ltv": group["ltv_proxy"].median(),
+                "actual_cure_lgd": group["realized_lgd_model_target"].mean(),
+                "predicted_cure_lgd": group["predicted_cure_lgd"].mean(),
+            }
+        )
+        for band, band_group in group.groupby("ltv_band", observed=True):
+            rows.append(
+                {
+                    "section": "ltv_band",
+                    "split": split,
+                    "ltv_band": band,
+                    "rows": len(band_group),
+                    "missing_ltv_rows": int(band_group["ltv_proxy"].isna().sum()),
+                    "missing_ltv_rate": band_group["ltv_proxy"].isna().mean(),
+                    "mean_ltv": band_group["ltv_proxy"].mean(),
+                    "median_ltv": band_group["ltv_proxy"].median(),
+                    "actual_cure_lgd": band_group["realized_lgd_model_target"].mean(),
+                    "predicted_cure_lgd": band_group["predicted_cure_lgd"].mean(),
+                }
+            )
+    relation = cure[["ltv_proxy", "realized_lgd_model_target"]].dropna()
+    rows.append(
+        {
+            "section": "relationship",
+            "split": "ALL",
+            "ltv_band": "correlation",
+            "rows": len(relation),
+            "missing_ltv_rows": int(cure["ltv_proxy"].isna().sum()),
+            "missing_ltv_rate": cure["ltv_proxy"].isna().mean(),
+            "mean_ltv": relation["ltv_proxy"].mean(),
+            "median_ltv": relation["ltv_proxy"].median(),
+            "actual_cure_lgd": relation["realized_lgd_model_target"].mean(),
+            "predicted_cure_lgd": relation["ltv_proxy"].corr(
+                relation["realized_lgd_model_target"]
+            ),
+        }
+    )
     return pd.DataFrame(rows)
 
 
