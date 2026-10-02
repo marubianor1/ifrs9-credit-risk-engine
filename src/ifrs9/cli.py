@@ -181,6 +181,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Overwrite an existing SICR/staging run with the same run ID",
     )
 
+    ecl = subparsers.add_parser("build-ecl", help="Build IFRS 9 ECL engine artifacts")
+    ecl.add_argument("--config", type=Path, help="Path to ECL YAML")
+    ecl.add_argument("--run-id", help="Optional deterministic ECL run ID")
+    ecl.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite an existing ECL run with the same run ID",
+    )
+
     return parser
 
 
@@ -273,6 +282,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         from ifrs9.sicr.framework import run_staging
 
         run_staging(
+            config_path=args.config,
+            run_id=args.run_id,
+            force=args.force,
+        )
+        return 0
+    if args.command == "build-ecl":
+        from ifrs9.ecl.engine import run_ecl
+
+        run_ecl(
             config_path=args.config,
             run_id=args.run_id,
             force=args.force,
