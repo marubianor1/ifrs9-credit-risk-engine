@@ -7,7 +7,7 @@ import pandas as pd
 
 from ifrs9.ead.framework import contractual_balance
 from ifrs9.ecl.config import ECLConfig, ECLOutputConfig
-from ifrs9.ecl.engine import _scenario_ecl, _scenario_weights
+from ifrs9.ecl.engine import _scenario_ecl, _scenario_weights, ecl_calendar_month
 
 
 def _config() -> ECLConfig:
@@ -70,6 +70,75 @@ def test_stage1_uses_max_12_months_and_stage2_uses_lifetime() -> None:
     assert np.isclose(ecl.iloc[0], (stage1_ead * 0.01 * 0.5).sum())
     assert np.isclose(ecl.iloc[1], (stage2_ead * 0.01 * 0.5).sum())
     assert ecl.iloc[1] > ecl.iloc[0]
+
+
+def test_reporting_date_is_horizon_zero_and_month_one_is_prospective() -> None:
+    assert ecl_calendar_month(date(2025, 3, 1), 0) == pd.Timestamp("2025-03-01")
+    assert ecl_calendar_month(date(2025, 3, 1), 1) == pd.Timestamp("2025-04-01")
+    assert ecl_calendar_month(date(2025, 3, 1), 3) == pd.Timestamp("2025-06-01")
+
+
+def test_quarterly_scenario_anchor_does_not_shift_month_one_pd() -> None:
+    frame = _frame().iloc[[0]].copy()
+    curves = {
+        ("BASE", "R1"): pd.DataFrame(
+            {
+                "scenario": ["BASE", "BASE", "BASE"],
+                "rating": ["R1", "R1", "R1"],
+                "date": [pd.Timestamp("2025-06-30")] * 3,
+                "month": [1, 2, 3],
+                "marginal_pd": [0.07, 0.0, 0.0],
+                "scenario_weight": [1.0, 1.0, 1.0],
+            }
+        )
+    }
+    ecl = _scenario_ecl(frame, curves, "BASE", _config())
+
+    expected_month_one = contractual_balance(100.0, 0.0, 24.0, 1) * 0.07 * 0.5
+    assert np.isclose(ecl.iloc[0], expected_month_one)
+
+
+def test_stage1_uses_exactly_12_future_months() -> None:
+    frame = _frame().iloc[[0]].copy()
+    curves = {
+        ("BASE", "R1"): pd.DataFrame(
+            {
+                "scenario": ["BASE"] * 13,
+                "rating": ["R1"] * 13,
+                "month": list(range(1, 14)),
+                "marginal_pd": [0.0] * 12 + [0.99],
+                "scenario_weight": [1.0] * 13,
+            }
+        )
+    }
+
+    ecl = _scenario_ecl(frame, curves, "BASE", _config())
+
+    assert np.isclose(ecl.iloc[0], 0.0)
+
+
+def test_stage2_starts_at_month_one_and_runs_to_maturity() -> None:
+    frame = _frame().iloc[[1]].copy()
+    frame["remaining_months_to_maturity"] = 2
+    curves = {
+        ("BASE", "R1"): pd.DataFrame(
+            {
+                "scenario": ["BASE", "BASE", "BASE"],
+                "rating": ["R1", "R1", "R1"],
+                "month": [1, 2, 3],
+                "marginal_pd": [0.03, 0.04, 0.99],
+                "scenario_weight": [1.0, 1.0, 1.0],
+            }
+        )
+    }
+
+    ecl = _scenario_ecl(frame, curves, "BASE", _config())
+    expected = (
+        contractual_balance(100.0, 0.0, 2.0, 1) * 0.03 * 0.5
+        + contractual_balance(100.0, 0.0, 2.0, 2) * 0.04 * 0.5
+    )
+
+    assert np.isclose(ecl.iloc[0], expected)
 
 
 def test_stage3_uses_pd_100_percent_without_ordinary_pd() -> None:

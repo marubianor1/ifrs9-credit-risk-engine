@@ -12,6 +12,19 @@ refitting any model. The first production run is `ecl_v1`.
 
 ## Formula
 
+The reporting date is horizon month 0. Monthly ECL horizons are prospective:
+
+```text
+calendar_month = reporting_date + horizon_month
+```
+
+For example, with reporting date `2025-03-01`, horizon month 1 is `2025-04-01`.
+The forward-looking PD artifact is built from quarterly scenario nodes. The
+engine selects the first prospective scenario anchor on or after the reporting
+date, such as `2025-06-30`, and uses the monthly marginal PD term structure
+attached to that anchor. That anchor labels the macro scenario path; it does not
+shift the ECL clock to June.
+
 Stage 1 uses a 12-month horizon:
 
 ```text
@@ -36,6 +49,11 @@ The engine calculates ECL separately for Upside, Base, and Downside using
 scenario-specific forward-looking marginal PD term structures. LGD is structural
 and macro-neutral because LGD macro challengers were rejected. Probability
 weighted ECL is the scenario-weighted sum, and scenario weights must sum to one.
+
+Quarterly macro scenario nodes are mapped to monthly ECL horizons by using the
+documented monthly marginal PD curve produced for the selected prospective
+scenario anchor. No realized macro observations after the reporting date are
+introduced into the reporting-date ECL calculation.
 
 ## LGD Sensitivity
 

@@ -118,13 +118,14 @@ def simulate_ecl(
     if overrides:
         config = config.model_copy(update=overrides)
     population = _reporting_population(root, config)
-    pd_curves, pd_curve_date = _pd_curves(root, config)
+    pd_curves, pd_scenario_anchor_date = _pd_curves(root, config)
     weights = _scenario_weights(pd_curves)
     lgd = _lgd_lookup(root, config, population)
     scored = population.merge(lgd, on=["loan_id", "default_episode_id"], how="left")
     scored["lgd"] = scored["lgd"].fillna(scored["rating"].map(_rating_lgd(root, config)))
     scored["lgd"] = scored["lgd"].fillna(_portfolio_lgd(root, config)).clip(0, 1)
-    scored["pd_curve_date"] = pd_curve_date
+    scored["pd_scenario_anchor_date"] = pd_scenario_anchor_date
+    scored["pd_horizon_start_date"] = pd.Timestamp(config.reporting_date)
 
     scenario_columns = {}
     for scenario in sorted(weights):
@@ -165,7 +166,8 @@ def simulate_ecl(
         "coverage_ratio",
         "remaining_months_to_maturity",
         "stage_horizon_months",
-        "pd_curve_date",
+        "pd_horizon_start_date",
+        "pd_scenario_anchor_date",
         "ecl_exceeds_ead",
     ]
     compact = scored[output_columns].copy()
@@ -313,6 +315,14 @@ def _scenario_ecl(
     return ecl.clip(lower=0)
 
 
+def ecl_calendar_month(reporting_date: pd.Timestamp | str, horizon_month: int) -> pd.Timestamp:
+    """Map an ECL horizon month to the prospective calendar month."""
+    if horizon_month < 0:
+        msg = "horizon_month must be non-negative"
+        raise ValueError(msg)
+    return pd.Timestamp(reporting_date) + pd.DateOffset(months=horizon_month)
+
+
 def _marginal_pd_for_month(
     ratings: pd.Series,
     pd_curves: dict[tuple[str, str], pd.DataFrame],
@@ -421,12 +431,20 @@ def _explainability(frame: pd.DataFrame) -> pd.DataFrame:
 
 def _alignment_warnings(repo_root: Path, config: ECLConfig, frame: pd.DataFrame) -> pd.DataFrame:
     warnings = []
-    curve_date = pd.to_datetime(frame["pd_curve_date"].iloc[0]) if not frame.empty else pd.NaT
-    if pd.notna(curve_date) and curve_date.date() != config.reporting_date:
+    anchor_date = (
+        pd.to_datetime(frame["pd_scenario_anchor_date"].iloc[0])
+        if "pd_scenario_anchor_date" in frame and not frame.empty
+        else pd.NaT
+    )
+    if pd.notna(anchor_date) and anchor_date.date() != config.reporting_date:
         warnings.append(
             {
-                "warning": "pd_curve_date_differs_from_reporting_date",
-                "detail": f"Used {curve_date.date()} for reporting date {config.reporting_date}.",
+                "warning": "pd_scenario_anchor_after_reporting_date",
+                "detail": (
+                    f"Scenario anchor {anchor_date.date()} is the first prospective "
+                    f"forward-looking macro node after reporting date {config.reporting_date}; "
+                    "ECL horizon month 1 still starts one month after the reporting date."
+                ),
                 "rows": len(frame),
             }
         )
