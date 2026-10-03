@@ -1,0 +1,74 @@
+scenario_lab:
+  version: v1
+  reporting_date: 2025-03-01
+  parents:
+    pd: forward_looking_pd_behavioural_qe_v1
+    lgd: lgd_v1_2
+    ead: ead_v1
+    staging: sicr_v1_1
+    ecl: ecl_v1
+  default_preset: mild_deterioration
+  output:
+    artifact_root: artifacts/scenarios
+  presets:
+    baseline:
+      name: baseline
+      description: Accepted ecl_v1 assumptions with no scenario-lab overlays.
+      macro: {}
+      staging: {}
+      portfolio: {}
+      lgd:
+        method: structural_base
+      ead: {}
+    mild_deterioration:
+      name: mild_deterioration
+      description: Illustrative moderate deterioration for UI controls.
+      macro:
+        unemployment_shock: 1.0
+        hpi_shock: -5.0
+        gdp_shock: -1.0
+        mortgage_rate_shock: 0.5
+        scenario_weights:
+          UPSIDE: 0.10
+          BASE: 0.55
+          DOWNSIDE: 0.35
+      staging:
+        relative_pd_threshold: 1.8
+        rating_downgrade_threshold: 2
+        dpd_backstop: 1
+      portfolio:
+        rating_downgrade_share: 0.03
+        delinquency_1m_share: 0.02
+        seed: 20250301
+      lgd:
+        method: structural_base
+        manual_overlay_pp: 1.0
+      ead:
+        multiplier: 1.02
+    severe_deterioration:
+      name: severe_deterioration
+      description: Illustrative severe deterioration for UI controls.
+      macro:
+        unemployment_shock: 3.0
+        hpi_shock: -15.0
+        gdp_shock: -3.0
+        mortgage_rate_shock: 1.5
+        scenario_weights:
+          UPSIDE: 0.05
+          BASE: 0.35
+          DOWNSIDE: 0.60
+      staging:
+        relative_pd_threshold: 1.5
+        rating_downgrade_threshold: 2
+        dpd_backstop: 1
+      portfolio:
+        rating_downgrade_share: 0.10
+        delinquency_1m_share: 0.05
+        delinquency_2m_share: 0.03
+        delinquency_3m_default_share: 0.01
+        seed: 20250301
+      lgd:
+        method: downturn_sensitivity
+        manual_overlay_pp: 3.0
+      ead:
+        multiplier: 1.05
