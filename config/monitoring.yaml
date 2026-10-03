@@ -1,0 +1,19 @@
+monitoring:
+  thresholds:
+    scorecard_auc:
+      green_min: 0.75
+      amber_min: 0.65
+    scorecard_psi:
+      green_max: 0.10
+      amber_max: 0.25
+    oe_ratio:
+      green_min: 0.80
+      green_max: 1.25
+      amber_min: 0.60
+      amber_max: 1.50
+    brier:
+      green_max: 0.02
+      amber_max: 0.05
+    mae:
+      green_max: 0.05
+      amber_max: 0.15

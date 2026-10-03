@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from app.services.artifacts import artifact_path, read_csv, read_json
+from app.services.artifacts import artifact_path, read_csv, read_json, repo_root
+from ifrs9.ecl.engine import ECLRunResult, run_ecl
 
 
 def load_ecl_artifacts(run_id: str = "ecl_v1") -> dict[str, pd.DataFrame | dict]:
@@ -18,6 +19,7 @@ def load_ecl_artifacts(run_id: str = "ecl_v1") -> dict[str, pd.DataFrame | dict]
         "vintage": read_csv(root / "ecl_by_vintage.csv"),
         "warnings": read_csv(root / "alignment_warnings.csv"),
         "reconciliation": read_csv(root / "scenario_reconciliation.csv"),
+        "downturn": read_csv(root / "downturn_lgd_sensitivity.csv"),
     }
 
 
@@ -30,3 +32,8 @@ def ecl_kpis(stage: pd.DataFrame, scenario: pd.DataFrame) -> dict[str, float]:
         "weighted_ecl": weighted_ecl,
         "coverage_ratio": weighted_ecl / total_ead if total_ead else 0.0,
     }
+
+
+def run_ecl_from_ui() -> ECLRunResult:
+    """Run the ECL backend from an explicit UI action."""
+    return run_ecl(repo_root=repo_root())

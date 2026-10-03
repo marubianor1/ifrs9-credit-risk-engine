@@ -4,11 +4,11 @@ Professional portfolio project to build a reproducible IFRS 9 credit risk and ex
 
 The intended end-to-end architecture covers data ingestion, data quality, default definition, scoring, rating, 12-month and lifetime PD, EAD, LGD, SICR, staging, forward-looking macroeconomic adjustment, scenario weighting, ECL, stress testing, validation, monitoring, reporting, and an application layer.
 
-Current status: **Modelling — LGD Framework**.
+Current status: **Application — Streamlit Phase 2 Risk Pages**.
 
-The Source to Bronze ingestion pipeline, Bronze to Silver standardization pipeline, Gold point-in-time loan-month mart, default definition, PD target factory, temporal development-sample factory, traditional logistic scorecard experiment framework, calibrated PD framework, forward-looking Vasicek scenario framework, and baseline LGD framework have been implemented for the local Freddie Mac sample archives. No EAD forecasting, SICR, staging, or ECL estimates have been implemented yet.
+The Source to Bronze ingestion pipeline, Bronze to Silver standardization pipeline, Gold point-in-time loan-month mart, default definition, PD target factory, temporal development-sample factory, traditional logistic scorecard experiment framework, calibrated PD framework, forward-looking Vasicek scenario framework, LGD framework, EAD framework, SICR/staging framework, ECL engine, Scenario Lab backend, and Streamlit portfolio app have been implemented for the local Freddie Mac sample archives.
 
-The current project layer contains a lightweight Freddie Mac source inventory, schema drift notes, version-controlled Release 47 source and Silver schemas, a reproducible Bronze Parquet ingestion pipeline, a Silver standardization pipeline, a Gold analytical mart with leakage-aware feature registry selectors, compact default/PD target tables, temporal development metadata, logistic WOE scorecard runs for application and behavioural populations, calibrated behavioural PD artifacts with rating, TTC, lifetime, transition, and backtesting outputs, forward-looking Base/Upside/Downside PD scenario outputs, and default-episode LGD artifacts with cure, non-cure severity, downturn, reconciliation, and backtesting outputs.
+The current project layer contains a lightweight Freddie Mac source inventory, schema drift notes, version-controlled Release 47 source and Silver schemas, a reproducible Bronze Parquet ingestion pipeline, a Silver standardization pipeline, a Gold analytical mart with leakage-aware feature registry selectors, compact default/PD target tables, temporal development metadata, logistic WOE scorecard runs for application and behavioural populations, calibrated behavioural PD artifacts with rating, TTC, lifetime, transition, and backtesting outputs, forward-looking Base/Upside/Downside PD scenario outputs, default-episode LGD artifacts with cure, non-cure severity, downturn, reconciliation, and backtesting outputs, amortizing mortgage EAD outputs, corrected SICR/staging outputs, ECL artifacts, scenario stress diagnostics, and Streamlit pages for portfolio review and monitoring.
 
 ## Dataset
 
@@ -104,6 +104,20 @@ Build LGD artifacts from existing default episodes:
 
 ```bash
 poetry run ifrs9 build-lgd
+```
+
+Build EAD, SICR/staging, ECL, and scenario artifacts:
+
+```bash
+poetry run ifrs9 build-ead
+poetry run ifrs9 build-staging
+poetry run ifrs9 build-ecl
+```
+
+Launch the Streamlit portfolio app:
+
+```bash
+poetry run streamlit run app/streamlit_app.py
 ```
 
 Run quality checks after the environment is installed:

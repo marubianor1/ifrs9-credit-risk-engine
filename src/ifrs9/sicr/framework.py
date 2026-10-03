@@ -415,6 +415,57 @@ def simulate_sicr_thresholds(
     return pd.DataFrame(rows)
 
 
+def simulate_threshold_stage_distribution(
+    config: StagingFrameworkConfig,
+    staged: pd.DataFrame,
+    overrides: dict[str, Any],
+) -> pd.DataFrame:
+    """Simulate one SICR threshold setting and return stage counts and EAD."""
+    prepared = staged.copy()
+    if "stage3_flag" not in prepared:
+        prepared["stage3_flag"] = prepared["stage"].eq(3)
+    if "low_credit_risk_exemption" not in prepared:
+        prepared["low_credit_risk_exemption"] = False
+    if "sicr_other_credit_deterioration" not in prepared:
+        prepared["sicr_other_credit_deterioration"] = False
+    relative_pd = overrides.get("relative_pd_increase", config.sicr.relative_pd_increase)
+    rating_notches = overrides.get(
+        "rating_downgrade_notches",
+        config.sicr.rating_downgrade_notches,
+    )
+    dpd_months = overrides.get("dpd_backstop_months", config.sicr.dpd_backstop_months)
+    absolute_pd = overrides.get("absolute_pd_increase", config.sicr.absolute_pd_increase)
+    stage2 = pd.Series(False, index=prepared.index)
+    if relative_pd is not None:
+        stage2 |= (
+            prepared["origination_baseline_available"].fillna(False)
+            & prepared["pd_relative_change"].ge(relative_pd)
+        )
+    if absolute_pd is not None:
+        stage2 |= (
+            prepared["origination_baseline_available"].fillna(False)
+            & prepared["pd_absolute_change"].ge(absolute_pd)
+        )
+    if rating_notches is not None:
+        stage2 |= prepared["rating_notch_change"].ge(rating_notches)
+    if dpd_months is not None:
+        stage2 |= prepared["sicr_dpd_backstop"].fillna(False)
+        stage2 |= prepared.get("delinquency_months", pd.Series(0, index=prepared.index)).fillna(
+            0
+        ).ge(dpd_months)
+    stage2 |= prepared["sicr_other_credit_deterioration"].fillna(False)
+    stage2 &= ~prepared["low_credit_risk_exemption"].fillna(False)
+    stage2 &= ~prepared["stage3_flag"].fillna(False)
+    stage = np.select([prepared["stage3_flag"], stage2], [3, 2], default=1)
+    prepared["simulated_stage"] = stage
+    return (
+        prepared.groupby("simulated_stage", observed=True)
+        .agg(rows=("loan_id", "size"), loans=("loan_id", "nunique"), ead=("ead_current", "sum"))
+        .reset_index()
+        .rename(columns={"simulated_stage": "stage"})
+    )
+
+
 def _apply_stage2_cure(frame: pd.DataFrame, config: StagingFrameworkConfig) -> pd.Series:
     if config.cure.stage2_to_1_rule == "immediate" or config.cure.probation_months == 0:
         return frame["sicr_raw_flag"] & ~frame["stage3_flag"]

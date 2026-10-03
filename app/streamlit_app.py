@@ -20,7 +20,12 @@ pages = [
     st.Page("pages/overview.py", title="Overview"),
     st.Page("pages/scoring.py", title="Scoring Models"),
     st.Page("pages/pd.py", title="PD"),
+    st.Page("pages/lgd.py", title="LGD"),
+    st.Page("pages/ead.py", title="EAD"),
+    st.Page("pages/sicr.py", title="SICR & Staging"),
+    st.Page("pages/ecl.py", title="ECL"),
     st.Page("pages/scenario_lab.py", title="Scenario Lab"),
+    st.Page("pages/monitoring.py", title="Model Monitoring"),
 ]
 
 navigation = st.navigation(pages)
