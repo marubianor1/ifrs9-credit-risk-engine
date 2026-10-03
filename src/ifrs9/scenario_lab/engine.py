@@ -204,8 +204,19 @@ def _scenario_from_config(
         raise KeyError(msg)
     scenario = config.presets[key]
     if overrides:
-        scenario = scenario.model_copy(update=overrides, deep=True)
+        scenario = ScenarioConfig.model_validate(_deep_merge(scenario.model_dump(), overrides))
     return scenario
+
+
+def _deep_merge(base: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:
+    """Recursively merge nested config overrides."""
+    merged = base.copy()
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
 
 
 def _scenario_state(repo_root: Path, config: ECLConfig) -> pd.DataFrame:
