@@ -4,11 +4,11 @@ Professional portfolio project to build a reproducible IFRS 9 credit risk and ex
 
 The intended end-to-end architecture covers data ingestion, data quality, default definition, scoring, rating, 12-month and lifetime PD, EAD, LGD, SICR, staging, forward-looking macroeconomic adjustment, scenario weighting, ECL, stress testing, validation, monitoring, reporting, and an application layer.
 
-Current status: **Application — Streamlit Phase 2 Risk Pages**.
+Current status: **Application — Streamlit Phase 3 AI-assisted reporting and polish**.
 
-The Source to Bronze ingestion pipeline, Bronze to Silver standardization pipeline, Gold point-in-time loan-month mart, default definition, PD target factory, temporal development-sample factory, traditional logistic scorecard experiment framework, calibrated PD framework, forward-looking Vasicek scenario framework, LGD framework, EAD framework, SICR/staging framework, ECL engine, Scenario Lab backend, and Streamlit portfolio app have been implemented for the local Freddie Mac sample archives.
+The Source to Bronze ingestion pipeline, Bronze to Silver standardization pipeline, Gold point-in-time loan-month mart, default definition, PD target factory, temporal development-sample factory, traditional logistic scorecard experiment framework, calibrated PD framework, forward-looking Vasicek scenario framework, LGD framework, EAD framework, SICR/staging framework, ECL engine, Scenario Lab backend, Streamlit portfolio app, and Groq-backed AI-assisted report generator have been implemented for the local Freddie Mac sample archives.
 
-The current project layer contains a lightweight Freddie Mac source inventory, schema drift notes, version-controlled Release 47 source and Silver schemas, a reproducible Bronze Parquet ingestion pipeline, a Silver standardization pipeline, a Gold analytical mart with leakage-aware feature registry selectors, compact default/PD target tables, temporal development metadata, logistic WOE scorecard runs for application and behavioural populations, calibrated behavioural PD artifacts with rating, TTC, lifetime, transition, and backtesting outputs, forward-looking Base/Upside/Downside PD scenario outputs, default-episode LGD artifacts with cure, non-cure severity, downturn, reconciliation, and backtesting outputs, amortizing mortgage EAD outputs, corrected SICR/staging outputs, ECL artifacts, scenario stress diagnostics, and Streamlit pages for portfolio review and monitoring.
+The current project layer contains a lightweight Freddie Mac source inventory, schema drift notes, version-controlled Release 47 source and Silver schemas, a reproducible Bronze Parquet ingestion pipeline, a Silver standardization pipeline, a Gold analytical mart with leakage-aware feature registry selectors, compact default/PD target tables, temporal development metadata, logistic WOE scorecard runs for application and behavioural populations, calibrated behavioural PD artifacts with rating, TTC, lifetime, transition, and backtesting outputs, forward-looking Base/Upside/Downside PD scenario outputs, default-episode LGD artifacts with cure, non-cure severity, downturn, reconciliation, and backtesting outputs, amortizing mortgage EAD outputs, corrected SICR/staging outputs, ECL artifacts, scenario stress diagnostics, Streamlit pages for portfolio review and monitoring, and structured report generation over validated aggregate artifacts.
 
 ## Dataset
 
@@ -24,6 +24,8 @@ Downloaded source files should remain outside version control. This project uses
 ## Reproducibility
 
 The project is configured with Poetry for dependency management. Configuration is stored under `config/` using repository-relative paths so the project can be reproduced on another machine.
+
+This is a portfolio/research implementation, not a regulatory production system.
 
 ## Planned Components
 
@@ -119,6 +121,8 @@ Launch the Streamlit portfolio app:
 ```bash
 poetry run streamlit run app/streamlit_app.py
 ```
+
+Enable optional Groq AI-assisted reporting by setting `GROQ_API_KEY` in `.env` or as a Streamlit secret. The app remains functional without a key and uses deterministic template reports.
 
 Run quality checks after the environment is installed:
 

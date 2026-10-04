@@ -14,7 +14,7 @@ The app defaults to existing demo runs and does not automatically trigger expens
 
 ## Navigation
 
-Phase 2 exposes the following page order:
+The final app exposes the following page order:
 
 - Overview
 - Scoring Models
@@ -25,8 +25,10 @@ Phase 2 exposes the following page order:
 - ECL
 - Scenario Lab
 - Model Monitoring
+- Report Generator
+- About / Methodology
 
-## Phase 2 Pages
+## Risk Pages
 
 ### LGD
 
@@ -48,10 +50,32 @@ The ECL page reads `ecl_v1` and shows Total EAD, weighted ECL, coverage ratio, S
 
 The monitoring page consolidates existing scorecard, PD, LGD, and EAD artifacts. Traffic-light statuses use transparent project monitoring thresholds from `config/monitoring.yaml`; they are portfolio-project thresholds, not regulatory thresholds.
 
+### Report Generator
+
+The Report Generator uses Groq Free Tier by default with `openai/gpt-oss-20b`, configured in `config/reporting.yaml`. It builds a compact `ReportContext` from validated aggregate artifacts, requests structured JSON output, validates the response with Pydantic, checks numerical references against the context, and exposes Markdown, JSON, and HTML downloads. If `GROQ_API_KEY` is missing or Groq is unavailable, the page falls back to deterministic template commentary.
+
+### About / Methodology
+
+The About page summarizes data source, architecture, IFRS 9 methodology, point-in-time controls, model governance, limitations, security boundaries, and the portfolio/research purpose. It explicitly avoids claiming regulatory production readiness.
+
 ## Caching And Execution
 
-Artifact loading is cached with `st.cache_data`. Expensive backend executions are guarded by explicit buttons. Scenario and staging controls update local UI state first and call backend simulation functions only after the user requests a run.
+Artifact loading is cached with `st.cache_data`. Expensive backend executions and Groq calls are guarded by explicit buttons. Scenario, staging, and reporting controls update local UI state first and call backend functions only after the user requests a run.
 
 ## Service Boundaries
 
 Page files should only coordinate layout and user controls. Artifact parsing belongs in `app/services/`. Model formulas, scenario mechanics, staging logic, EAD projection, and ECL calculation belong in `src/ifrs9`.
+
+## Groq Setup
+
+Set the key locally in `.env`:
+
+```bash
+GROQ_API_KEY=
+```
+
+For Streamlit Cloud, configure it only as a secret:
+
+```ini
+GROQ_API_KEY="..."
+```

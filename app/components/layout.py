@@ -39,7 +39,8 @@ def render_sidebar() -> None:
             help="Phase 1 starts from persisted artifacts and does not retrain on load.",
         )
         st.divider()
-        st.metric("Project status", "Phase 1 UI")
+        st.metric("Project status", "Phase 3 UI")
+        st.caption("Portfolio/research implementation, not regulatory production readiness.")
         st.write("Reporting date: `2025-03-01`")
         st.write(f"Git commit: `{git_commit()}`")
         st.write(f"Data period: {data_period()}")

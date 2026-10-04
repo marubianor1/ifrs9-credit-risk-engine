@@ -1,0 +1,57 @@
+reporting:
+  provider: groq
+  model: openai/gpt-oss-20b
+  max_output_tokens: 4000
+  temperature: 0.2
+  reasoning_effort: low
+  templates:
+    Executive IFRS 9 Summary:
+      sections:
+        - executive_summary
+        - portfolio_position
+        - scenario_analysis
+        - limitations
+        - management_actions
+    Provisioning Report:
+      sections:
+        - executive_summary
+        - portfolio_position
+        - key_risk_movements
+        - scenario_analysis
+        - limitations
+    Scorecard / PD Model Report:
+      sections:
+        - executive_summary
+        - model_performance
+        - limitations
+        - management_actions
+    LGD Model Review:
+      sections:
+        - executive_summary
+        - model_performance
+        - limitations
+        - management_actions
+    EAD Model Review:
+      sections:
+        - executive_summary
+        - model_performance
+        - limitations
+        - management_actions
+    SICR / Staging Report:
+      sections:
+        - executive_summary
+        - portfolio_position
+        - key_risk_movements
+        - limitations
+    Scenario Stress Report:
+      sections:
+        - executive_summary
+        - scenario_analysis
+        - key_risk_movements
+        - limitations
+    Model Monitoring Report:
+      sections:
+        - executive_summary
+        - model_performance
+        - limitations
+        - management_actions

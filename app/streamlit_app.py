@@ -26,6 +26,8 @@ pages = [
     st.Page("pages/ecl.py", title="ECL"),
     st.Page("pages/scenario_lab.py", title="Scenario Lab"),
     st.Page("pages/monitoring.py", title="Model Monitoring"),
+    st.Page("pages/report_generator.py", title="Report Generator"),
+    st.Page("pages/about.py", title="About / Methodology"),
 ]
 
 navigation = st.navigation(pages)
