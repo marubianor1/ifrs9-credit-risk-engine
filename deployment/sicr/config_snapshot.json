@@ -1,0 +1,46 @@
+{
+  "version": "v1",
+  "parent_pd_run": "pd_behavioural_qe_v1",
+  "sicr": {
+    "relative_pd_increase": 2.0,
+    "absolute_pd_increase": null,
+    "rating_downgrade_notches": 3,
+    "dpd_backstop_months": 1,
+    "other_credit_deterioration": {
+      "enabled": false,
+      "include_modification": true,
+      "include_assistance": true
+    }
+  },
+  "stage3": {
+    "default_flag": true
+  },
+  "low_credit_risk": {
+    "enabled": false,
+    "max_rating": null
+  },
+  "cure": {
+    "probation_months": 3,
+    "stage2_to_1_rule": "consecutive_months_without_sicr"
+  },
+  "sensitivity": {
+    "relative_pd_increase": [
+      1.5,
+      2.0,
+      3.0
+    ],
+    "rating_downgrade_notches": [
+      2,
+      3,
+      4
+    ],
+    "dpd_backstop_months": [
+      1,
+      2
+    ]
+  },
+  "output": {
+    "staging_path": "data/gold/freddie/staging",
+    "artifact_root": "artifacts/sicr"
+  }
+}

@@ -6,6 +6,7 @@ import plotly.express as px
 import streamlit as st
 from app.components.layout import friendly_error, page_title
 from app.services.pd import available_pd_runs, load_pd_artifacts, run_pd_from_controls
+from app.services.runtime import full_mode_message, is_cloud_demo
 
 
 @st.cache_data(show_spinner=False)
@@ -35,37 +36,41 @@ def main() -> None:
         return
 
     st.subheader("Future Run Controls")
-    c1, c2, c3, c4 = st.columns(4)
-    calibration_method = c1.selectbox(
-        "Calibration method",
-        ["split_mean_anchor", "isotonic", "platt"],
-    )
-    anchor_dates = c2.text_input("Anchor dates", "2012-01-01 to 2024-03-01")
-    rating_config = c3.text_input("Rating configuration", "5-grade master scale")
-    horizon = c4.number_input(
-        "Max lifetime horizon",
-        min_value=12,
-        max_value=600,
-        value=360,
-        step=12,
-    )
-    if st.button("Run PD Framework", type="primary"):
-        st.caption(
-            "Calibration method, anchor dates, and rating configuration are captured for future "
-            "UI overrides; the current PD backend uses the versioned YAML configuration."
+    if is_cloud_demo():
+        st.info(full_mode_message())
+    else:
+        c1, c2, c3, c4 = st.columns(4)
+        calibration_method = c1.selectbox(
+            "Calibration method",
+            ["split_mean_anchor", "isotonic", "platt"],
         )
-        _ = (calibration_method, anchor_dates, rating_config)
-        with st.spinner("Running PD framework via existing backend API..."):
-            try:
-                new_run_id = run_pd_from_controls(
-                    scorecard_run_id=st.session_state.get("scorecard_run", "behavioural_qe_v1"),
-                    max_lifetime_horizon=int(horizon),
-                )
-            except Exception as exc:
-                friendly_error(exc)
-            else:
-                st.session_state["pd_run"] = new_run_id
-                st.success(f"Created PD run `{new_run_id}`")
+        anchor_dates = c2.text_input("Anchor dates", "2012-01-01 to 2024-03-01")
+        rating_config = c3.text_input("Rating configuration", "5-grade master scale")
+        horizon = c4.number_input(
+            "Max lifetime horizon",
+            min_value=12,
+            max_value=600,
+            value=360,
+            step=12,
+        )
+        if st.button("Run PD Framework", type="primary"):
+            st.caption(
+                "Calibration method, anchor dates, and rating configuration are captured for "
+                "future UI overrides; the current PD backend uses the versioned YAML "
+                "configuration."
+            )
+            _ = (calibration_method, anchor_dates, rating_config)
+            with st.spinner("Running PD framework via existing backend API..."):
+                try:
+                    new_run_id = run_pd_from_controls(
+                        scorecard_run_id=st.session_state.get("scorecard_run", "behavioural_qe_v1"),
+                        max_lifetime_horizon=int(horizon),
+                    )
+                except Exception as exc:
+                    friendly_error(exc)
+                else:
+                    st.session_state["pd_run"] = new_run_id
+                    st.success(f"Created PD run `{new_run_id}`")
 
     tab_cal, tab_rating, tab_lifetime, tab_backtest = st.tabs(
         ["Calibration", "Ratings", "Lifetime PD", "Backtesting"]

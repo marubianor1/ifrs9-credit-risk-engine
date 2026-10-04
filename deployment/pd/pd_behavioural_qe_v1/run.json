@@ -1,0 +1,78 @@
+{
+  "run_id": "pd_behavioural_qe_v1",
+  "scorecard_parent_run_id": "behavioural_qe_v1",
+  "config": {
+    "version": "v1",
+    "primary_scorecard_run": "behavioural_qe_v1",
+    "secondary_scorecard_runs": [
+      "application_qe_v1"
+    ],
+    "calibration": {
+      "method": "logistic_recalibration",
+      "fit_split": "VALIDATION",
+      "raw_pd_column": "predicted_pd_raw"
+    },
+    "rating_master_scale": {
+      "grade_count": 10,
+      "labels": [
+        "R1",
+        "R2",
+        "R3",
+        "R4",
+        "R5",
+        "R6",
+        "R7",
+        "R8",
+        "R9",
+        "R10"
+      ],
+      "minimum_population_pct": 0.02,
+      "minimum_defaults": 20
+    },
+    "ttc": {
+      "anchor_start": "2012-01-01",
+      "anchor_end": "2024-03-01",
+      "weighting": "observation_weighted"
+    },
+    "lifetime": {
+      "max_horizon_months": 360,
+      "smoothing": 0.5,
+      "reconcile_first_12m": true
+    },
+    "transitions": {
+      "frequencies_months": [
+        1,
+        12
+      ],
+      "default_state": "DEFAULT"
+    },
+    "backtesting": {
+      "insufficient_default_threshold": 20
+    },
+    "run": {
+      "artifact_root": "artifacts/pd",
+      "model_root": "models/pd"
+    }
+  },
+  "calibration_model": {
+    "method": "logistic_recalibration",
+    "raw_pd_column": "predicted_pd_raw",
+    "intercept": -0.38511203441193703,
+    "coefficient": 0.6198774241854814,
+    "coefficient_was_clipped": false,
+    "fit_split": "VALIDATION",
+    "fit_rows": 2908195
+  },
+  "git_commit": {
+    "commit": "e5cece7",
+    "dirty": "False"
+  },
+  "created_at": "2026-09-27T10:49:45.829470+00:00",
+  "result": {
+    "run_id": "pd_behavioural_qe_v1",
+    "scorecard_run_id": "behavioural_qe_v1",
+    "artifact_path": "<repo_root>/artifacts/pd/pd_behavioural_qe_v1",
+    "model_path": "<repo_root>/models/pd/pd_behavioural_qe_v1",
+    "processing_time_seconds": 99.13476112502394
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "version": "v1",
+  "reporting_date": "2025-03-01",
+  "pd_run": "forward_looking_pd_behavioural_qe_v1",
+  "lgd_run": "lgd_v1_2",
+  "ead_run": "ead_v1",
+  "staging_run": "sicr_v1_1",
+  "ead_method": "contractual_amortization",
+  "lgd_method": "structural_base",
+  "discount_rate": "effective_rate_proxy",
+  "scenario_weighting": true,
+  "max_lifetime_months": 360,
+  "output": {
+    "gold_path": "data/gold/freddie/ecl",
+    "artifact_root": "artifacts/ecl"
+  }
+}

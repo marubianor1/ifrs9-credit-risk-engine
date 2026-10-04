@@ -1,0 +1,40 @@
+{
+  "version": "v1",
+  "method": "macro_overlay",
+  "parent_lgd_run": "lgd_v1_2",
+  "scenario_run": "forward_looking_pd_behavioural_qe_v1",
+  "calibration_split": "VALIDATION",
+  "overlay_floor": 0.0,
+  "overlay_cap": null,
+  "scenario_horizon_quarters": 12,
+  "macro_features": [
+    "unemployment_rate",
+    "house_price_index_yoy",
+    "real_gdp_yoy",
+    "mortgage_rate",
+    "systematic_factor"
+  ],
+  "stress_weights": {
+    "unemployment_rate": 1.0,
+    "house_price_index_yoy": -1.0,
+    "real_gdp_yoy": -0.5,
+    "mortgage_rate": 0.25,
+    "systematic_factor": -0.5
+  },
+  "sensitivity": {
+    "hpi_shocks": [
+      -2.0,
+      0.0,
+      2.0
+    ],
+    "unemployment_shocks": [
+      -1.0,
+      0.0,
+      1.0
+    ]
+  },
+  "output": {
+    "artifact_root": "artifacts/lgd_forward_looking",
+    "model_root": "models/lgd_forward_looking"
+  }
+}

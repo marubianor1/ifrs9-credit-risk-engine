@@ -1,0 +1,7 @@
+metric,value,ead
+stage3_entries,31685.0,7104762282.25
+stage3_active_rows,259264.0,57075733625.240005
+average_months_in_stage3,8.182546946504655,
+median_months_in_stage3,6.0,
+cured_stage3_episodes,24567.0,
+unresolved_or_terminal_stage3_episodes,7118.0,

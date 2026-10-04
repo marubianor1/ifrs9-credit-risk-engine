@@ -1,0 +1,14 @@
+trigger_set,rows,ead
+only_sicr_relative_pd,551835,101060752194.15
+only_sicr_absolute_pd,0,0.0
+only_sicr_rating_downgrade,0,0.0
+only_sicr_dpd_backstop,69482,16962389021.21
+only_sicr_other_credit_deterioration,0,0.0
+overlap_two_or_more,238054,50110990357.15
+no_stage2_trigger,9713654,1991036597994.75
+none,9713654,1991036597994.75
+sicr_dpd_backstop,69482,16962389021.21
+sicr_relative_pd,551835,101060752194.15
+sicr_relative_pd+sicr_dpd_backstop,235941,49804614096.56
+sicr_relative_pd+sicr_rating_downgrade,1612,211694935.05
+sicr_relative_pd+sicr_rating_downgrade+sicr_dpd_backstop,501,94681325.53999999

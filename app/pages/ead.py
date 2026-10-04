@@ -11,6 +11,7 @@ from app.services.ead import (
     load_ead_artifacts,
     run_ead_from_controls,
 )
+from app.services.runtime import full_mode_message, is_cloud_demo
 
 
 @st.cache_data(show_spinner=False)
@@ -35,22 +36,31 @@ def main() -> None:
     profiles = artifacts["profiles"]
 
     st.subheader("Future EAD Run Controls")
-    c1, c2, c3 = st.columns(3)
-    method = c1.selectbox(
-        "Method",
-        ["contractual_amortization", "current_balance", "empirical_model"],
-    )
-    max_horizon = c2.number_input("Max horizon", min_value=12, max_value=600, value=360, step=12)
-    amortization = c3.selectbox("Amortization assumption", ["standard", "zero_interest_safe"])
-    if st.button("Run EAD", type="primary"):
-        _ = (method, max_horizon, amortization)
-        with st.spinner("Running EAD framework via existing backend API..."):
-            try:
-                new_run = run_ead_from_controls()
-            except Exception as exc:
-                friendly_error(exc)
-            else:
-                st.success(f"Created EAD run `{new_run}`")
+    if is_cloud_demo():
+        st.info(full_mode_message())
+    else:
+        c1, c2, c3 = st.columns(3)
+        method = c1.selectbox(
+            "Method",
+            ["contractual_amortization", "current_balance", "empirical_model"],
+        )
+        max_horizon = c2.number_input(
+            "Max horizon",
+            min_value=12,
+            max_value=600,
+            value=360,
+            step=12,
+        )
+        amortization = c3.selectbox("Amortization assumption", ["standard", "zero_interest_safe"])
+        if st.button("Run EAD", type="primary"):
+            _ = (method, max_horizon, amortization)
+            with st.spinner("Running EAD framework via existing backend API..."):
+                try:
+                    new_run = run_ead_from_controls()
+                except Exception as exc:
+                    friendly_error(exc)
+                else:
+                    st.success(f"Created EAD run `{new_run}`")
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Observable defaults", f"{ratio['observable_defaults'].iloc[0]:,.0f}")

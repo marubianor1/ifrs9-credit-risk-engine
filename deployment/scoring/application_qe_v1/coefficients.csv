@@ -1,0 +1,8 @@
+feature,coefficient,odds_ratio,standard_error,p_value,sign_expected,sign_matches_woe_expectation
+INTERCEPT,-5.975117218681533,0.002541204192704848,,,,
+original_credit_score,-0.7920078598421858,0.45293445276924793,,,negative,True
+original_dti,-0.33437759778899656,0.7157834529433188,,,negative,True
+original_ltv,-0.3526811690534176,0.7028012324422489,,,negative,True
+original_cltv,-0.2938410424580478,0.7453949681785791,,,negative,True
+original_upb,-0.048208274460381034,0.9529352943235334,,,negative,True
+original_interest_rate,-0.46070088434422746,0.6308413437023348,,,negative,True

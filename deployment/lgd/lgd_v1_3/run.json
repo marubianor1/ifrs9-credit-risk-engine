@@ -1,0 +1,148 @@
+{
+  "run_id": "lgd_v1_3",
+  "config": {
+    "version": "v1",
+    "default_definition": "existing",
+    "parent_pd_run": "pd_behavioural_qe_v1",
+    "resolution_horizon_months": 60,
+    "cure_probation_months": 3,
+    "discounting": {
+      "method": "effective_rate_proxy",
+      "fallback_rate": null
+    },
+    "target": {
+      "lower_bound": 0.0,
+      "upper_bound": 1.0,
+      "cure_fallback_lgd": 0.0
+    },
+    "development": {
+      "train_end": "2018-12-01",
+      "validation_end": "2021-12-01",
+      "oot_end": "2025-03-01"
+    },
+    "segmentation": {
+      "variables": [
+        "rating_at_default",
+        "current_ltv_band",
+        "default_reason"
+      ],
+      "minimum_resolved_defaults": 50
+    },
+    "models": {
+      "cure": {
+        "type": "logistic_regression",
+        "max_iter": 500
+      },
+      "severity": {
+        "type": "linear_regression",
+        "bounded_link": "linear_clipped_target"
+      }
+    },
+    "downturn": {
+      "method": "historical_stress",
+      "stress_start": "2019-01-01",
+      "stress_end": "2021-12-01",
+      "quantile": 0.75
+    },
+    "features": {
+      "numeric": [
+        "ead_at_default",
+        "current_interest_rate_at_default",
+        "estimated_loan_to_value_at_default",
+        "current_upb_to_original_upb_at_default",
+        "delinquency_months_at_default",
+        "max_delinquency_months_to_date_at_default",
+        "months_delinquent_to_date_at_default",
+        "months_since_last_delinquency_at_default",
+        "months_since_origination_at_default",
+        "original_credit_score",
+        "original_dti",
+        "original_ltv",
+        "original_cltv",
+        "original_upb",
+        "original_interest_rate",
+        "mortgage_insurance_percentage"
+      ],
+      "categorical": [
+        "rating_at_default",
+        "default_reason",
+        "property_state",
+        "property_type",
+        "occupancy_status",
+        "loan_purpose",
+        "channel",
+        "ever_modified_to_date_at_default",
+        "ever_assistance_to_date_at_default"
+      ]
+    },
+    "run": {
+      "artifact_root": "artifacts/lgd",
+      "model_root": "models/lgd"
+    }
+  },
+  "git_commit": {
+    "commit": "21b92aa",
+    "dirty": "False"
+  },
+  "created_at": "2026-10-02T04:43:17.295482+00:00",
+  "result": {
+    "run_id": "lgd_v1_3",
+    "artifact_path": "<repo_root>/artifacts/lgd/lgd_v1_3",
+    "model_path": "<repo_root>/models/lgd/lgd_v1_3",
+    "processing_time_seconds": 10.2508202920435
+  },
+  "target_dataset_metadata": {
+    "rows": 31685,
+    "resolved": 29313,
+    "unresolved": 2372,
+    "predictors": [
+      "ead_at_default",
+      "current_interest_rate_at_default",
+      "estimated_loan_to_value_at_default",
+      "current_upb_to_original_upb_at_default",
+      "delinquency_months_at_default",
+      "max_delinquency_months_to_date_at_default",
+      "months_delinquent_to_date_at_default",
+      "months_since_last_delinquency_at_default",
+      "months_since_origination_at_default",
+      "original_credit_score",
+      "original_dti",
+      "original_ltv",
+      "original_cltv",
+      "original_upb",
+      "original_interest_rate",
+      "mortgage_insurance_percentage",
+      "rating_at_default",
+      "default_reason",
+      "property_state",
+      "property_type",
+      "occupancy_status",
+      "loan_purpose",
+      "channel",
+      "ever_modified_to_date_at_default",
+      "ever_assistance_to_date_at_default"
+    ],
+    "outcome_excluded_columns": [
+      "actual_loss",
+      "bankruptcy_cramdown_costs",
+      "cumulative_modification_costs",
+      "cured_flag",
+      "delinquent_accrued_interest",
+      "discounted_costs",
+      "discounted_recoveries",
+      "economic_loss",
+      "freddie_reconstructed_actual_loss",
+      "mi_recoveries",
+      "months_to_resolution",
+      "net_sale_proceeds",
+      "non_mi_recoveries",
+      "realized_lgd_model_target",
+      "realized_lgd_raw",
+      "resolution_date",
+      "resolution_type",
+      "resolved_flag",
+      "total_expenses",
+      "zero_balance_removal_upb"
+    ]
+  }
+}

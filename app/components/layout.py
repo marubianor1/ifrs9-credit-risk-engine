@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from app.services.artifacts import data_period, git_commit
+from app.services.artifacts import data_period, git_commit, mode_label
 
 
 def money(value: float) -> str:
@@ -40,6 +40,7 @@ def render_sidebar() -> None:
         )
         st.divider()
         st.metric("Project status", "Phase 3 UI")
+        st.metric("Execution mode", mode_label())
         st.caption("Portfolio/research implementation, not regulatory production readiness.")
         st.write("Reporting date: `2025-03-01`")
         st.write(f"Git commit: `{git_commit()}`")

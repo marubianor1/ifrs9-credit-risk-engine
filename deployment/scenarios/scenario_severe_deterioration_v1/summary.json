@@ -1,0 +1,18 @@
+{
+  "run_id": "scenario_severe_deterioration_v1",
+  "scenario": "severe_deterioration",
+  "description": "Illustrative severe deterioration for UI controls.",
+  "baseline_ead": 73245322184.51,
+  "baseline_ecl": 690088387.1167374,
+  "stressed_ead": 76907588293.7355,
+  "stressed_ecl": 2043704281.3418107,
+  "delta_ecl": 1353615894.2250733,
+  "delta_ecl_pct": 1.961510901350803,
+  "waterfall_delta": 1353615894.2250733,
+  "processing_time_seconds": 67.61969533294905,
+  "created_at": "2026-10-03T13:01:17.269273+00:00",
+  "git_commit": {
+    "commit": "d94d92a",
+    "dirty": "True"
+  }
+}

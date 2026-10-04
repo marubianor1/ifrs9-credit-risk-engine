@@ -5,6 +5,7 @@ from __future__ import annotations
 import plotly.express as px
 import streamlit as st
 from app.components.layout import friendly_error, page_title
+from app.services.runtime import full_mode_message, is_cloud_demo
 from app.services.scorecard import (
     available_scorecard_runs,
     load_scorecard_artifacts,
@@ -49,35 +50,41 @@ def main() -> None:
     deciles = artifacts["deciles"]
 
     st.subheader("Future Run Controls")
-    c1, c2, c3 = st.columns(3)
-    population = c1.selectbox("Population", ["behavioural", "application"])
-    snapshot_frequency = c2.selectbox("Snapshot frequency", ["quarter_end", "monthly", "year_end"])
-    sampling_strategy = c3.selectbox(
-        "Sampling strategy",
-        ["none", "random_nondefault", "stratified_nondefault"],
-    )
-    d1, d2, d3 = st.columns(3)
-    train_dates = d1.text_input("Train dates", "2012-01-01 to 2018-12-31")
-    validation_dates = d2.text_input("Validation dates", "2019-01-01 to 2021-12-31")
-    oot_dates = d3.text_input("OOT dates", "2022-01-01 to 2024-03-01")
-    if st.button("Run Model", type="primary"):
-        st.caption(
-            "Date windows are captured for future configuration; the current scorecard backend "
-            "uses the configured development sample windows."
+    if is_cloud_demo():
+        st.info(full_mode_message())
+    else:
+        c1, c2, c3 = st.columns(3)
+        population = c1.selectbox("Population", ["behavioural", "application"])
+        snapshot_frequency = c2.selectbox(
+            "Snapshot frequency",
+            ["quarter_end", "monthly", "year_end"],
         )
-        _ = (train_dates, validation_dates, oot_dates)
-        with st.spinner("Training scorecard via existing backend API..."):
-            try:
-                new_run_id = run_scorecard_from_controls(
-                    population=population,
-                    snapshot_frequency=snapshot_frequency,
-                    sampling_strategy=sampling_strategy,
-                )
-            except Exception as exc:
-                friendly_error(exc)
-            else:
-                st.session_state["scorecard_run"] = new_run_id
-                st.success(f"Created scorecard run `{new_run_id}`")
+        sampling_strategy = c3.selectbox(
+            "Sampling strategy",
+            ["none", "random_nondefault", "stratified_nondefault"],
+        )
+        d1, d2, d3 = st.columns(3)
+        train_dates = d1.text_input("Train dates", "2012-01-01 to 2018-12-31")
+        validation_dates = d2.text_input("Validation dates", "2019-01-01 to 2021-12-31")
+        oot_dates = d3.text_input("OOT dates", "2022-01-01 to 2024-03-01")
+        if st.button("Run Model", type="primary"):
+            st.caption(
+                "Date windows are captured for future configuration; the current scorecard "
+                "backend uses the configured development sample windows."
+            )
+            _ = (train_dates, validation_dates, oot_dates)
+            with st.spinner("Training scorecard via existing backend API..."):
+                try:
+                    new_run_id = run_scorecard_from_controls(
+                        population=population,
+                        snapshot_frequency=snapshot_frequency,
+                        sampling_strategy=sampling_strategy,
+                    )
+                except Exception as exc:
+                    friendly_error(exc)
+                else:
+                    st.session_state["scorecard_run"] = new_run_id
+                    st.success(f"Created scorecard run `{new_run_id}`")
 
     tab_features, tab_perf, tab_cal, tab_stability = st.tabs(
         ["Features", "Performance", "Calibration", "Stability"]

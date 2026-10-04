@@ -12,6 +12,7 @@ from app.services.artifacts import (
     read_parquet,
     repo_root,
 )
+from app.services.runtime import is_cloud_demo
 
 BASELINE_METHOD = "contractual_amortization"
 
@@ -32,7 +33,9 @@ def load_ead_artifacts(run_id: str = "ead_v1") -> dict[str, pd.DataFrame | dict]
         "backtest_segment": read_csv(root / "backtest_by_segment.csv"),
         "profile_validation": read_csv(root / "profile_validation.csv"),
         "target_reconciliation": read_csv(root / "target_reconciliation.csv"),
-        "profiles": read_parquet(root / "ead_profiles.parquet"),
+        "profiles": read_csv(root / "ead_profiles.csv")
+        if is_cloud_demo()
+        else read_parquet(root / "ead_profiles.parquet"),
     }
 
 

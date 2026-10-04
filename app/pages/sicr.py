@@ -5,6 +5,7 @@ from __future__ import annotations
 import plotly.express as px
 import streamlit as st
 from app.components.layout import friendly_error, page_title
+from app.services.runtime import full_mode_message, is_cloud_demo
 from app.services.sicr import (
     load_sicr_artifacts,
     run_staging_simulation,
@@ -35,51 +36,53 @@ def main() -> None:
     st.plotly_chart(px.bar(stage, x="stage", y="ead", color="stage"), use_container_width=True)
     st.dataframe(stage, use_container_width=True, hide_index=True)
 
-    with st.form("staging_simulation"):
+    if is_cloud_demo():
         st.subheader("Threshold Simulation")
-        c1, c2, c3, c4, c5 = st.columns(5)
-        relative_pd = c1.number_input("Relative PD", min_value=0.1, value=2.0, step=0.1)
-        absolute_text = c2.text_input("Absolute PD", "")
-        rating = c3.number_input("Rating downgrade", min_value=1, value=3, step=1)
-        dpd = c4.number_input("DPD backstop", min_value=1, value=1, step=1)
-        cure = c5.number_input("Stage 2 cure probation", min_value=0, value=3, step=1)
-        run_clicked = st.form_submit_button("Run Staging Simulation", type="primary")
-    if run_clicked:
-        try:
-            overrides = staging_overrides_from_controls(
-                relative_pd=relative_pd,
-                absolute_pd=float(absolute_text) if absolute_text else None,
-                rating_downgrade=int(rating),
-                dpd_backstop=int(dpd),
-                cure_probation=int(cure),
-            )
-            result = run_staging_simulation(overrides)
-        except Exception as exc:
-            friendly_error(exc)
-        else:
-            st.subheader("Simulated Stage Distribution")
-            simulated = result["stage_distribution"]
-            st.dataframe(simulated, use_container_width=True, hide_index=True)
-            baseline = stage[["stage", "rows", "ead"]].rename(
-                columns={"rows": "baseline_rows", "ead": "baseline_ead"}
-            )
-            comparison = baseline.merge(
-                simulated[["stage", "rows", "ead"]].rename(
-                    columns={"rows": "simulated_rows", "ead": "simulated_ead"}
-                ),
-                on="stage",
-                how="outer",
-            ).fillna(0)
-            comparison["row_delta"] = (
-                comparison["simulated_rows"] - comparison["baseline_rows"]
-            )
-            comparison["ead_delta"] = (
-                comparison["simulated_ead"] - comparison["baseline_ead"]
-            )
-            st.subheader("Baseline vs Simulated")
-            st.dataframe(comparison, use_container_width=True, hide_index=True)
-            st.subheader("Simulation Summary")
-            st.dataframe(result["sensitivity"], use_container_width=True, hide_index=True)
+        st.info(full_mode_message())
+    else:
+        with st.form("staging_simulation"):
+            st.subheader("Threshold Simulation")
+            c1, c2, c3, c4, c5 = st.columns(5)
+            relative_pd = c1.number_input("Relative PD", min_value=0.1, value=2.0, step=0.1)
+            absolute_text = c2.text_input("Absolute PD", "")
+            rating = c3.number_input("Rating downgrade", min_value=1, value=3, step=1)
+            dpd = c4.number_input("DPD backstop", min_value=1, value=1, step=1)
+            cure = c5.number_input("Stage 2 cure probation", min_value=0, value=3, step=1)
+            run_clicked = st.form_submit_button("Run Staging Simulation", type="primary")
+        if run_clicked:
+            try:
+                overrides = staging_overrides_from_controls(
+                    relative_pd=relative_pd,
+                    absolute_pd=float(absolute_text) if absolute_text else None,
+                    rating_downgrade=int(rating),
+                    dpd_backstop=int(dpd),
+                    cure_probation=int(cure),
+                )
+                result = run_staging_simulation(overrides)
+            except Exception as exc:
+                friendly_error(exc)
+            else:
+                st.subheader("Simulated Stage Distribution")
+                simulated = result["stage_distribution"]
+                st.dataframe(simulated, use_container_width=True, hide_index=True)
+                baseline = stage[["stage", "rows", "ead"]].rename(
+                    columns={"rows": "baseline_rows", "ead": "baseline_ead"}
+                )
+                comparison = baseline.merge(
+                    simulated[["stage", "rows", "ead"]].rename(
+                        columns={"rows": "simulated_rows", "ead": "simulated_ead"}
+                    ),
+                    on="stage",
+                    how="outer",
+                ).fillna(0)
+                comparison["row_delta"] = (
+                    comparison["simulated_rows"] - comparison["baseline_rows"]
+                )
+                comparison["ead_delta"] = comparison["simulated_ead"] - comparison["baseline_ead"]
+                st.subheader("Baseline vs Simulated")
+                st.dataframe(comparison, use_container_width=True, hide_index=True)
+                st.subheader("Simulation Summary")
+                st.dataframe(result["sensitivity"], use_container_width=True, hide_index=True)
 
     tab_triggers, tab_migrations, tab_reference = st.tabs(
         ["Triggers", "Migrations", "Reference PD"]

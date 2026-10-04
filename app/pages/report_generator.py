@@ -13,6 +13,8 @@ from app.services.reporting import (
     export_payloads,
     generate_report_for_ui,
     groq_key_available,
+    mark_report_call,
+    report_cooldown_remaining,
 )
 
 
@@ -42,11 +44,14 @@ def main() -> None:
     scenario_run = c2.selectbox("Selected run / scenario", SCENARIO_RUNS, index=1)
     audience = c3.selectbox("Audience", AUDIENCES, index=1)
     detail = c4.selectbox("Detail", DETAIL_LEVELS, index=1)
+    cooldown = report_cooldown_remaining()
     use_llm = st.toggle(
         "Use Groq LLM when key is available",
-        value=groq_key_available(),
-        disabled=not groq_key_available(),
+        value=groq_key_available() and cooldown == 0,
+        disabled=not groq_key_available() or cooldown > 0,
     )
+    if cooldown > 0:
+        st.caption(f"Groq generation cooldown active: {cooldown} seconds remaining.")
 
     if not groq_key_available():
         st.info(
@@ -76,6 +81,8 @@ def main() -> None:
                     scenario_run=scenario_run,
                     use_llm=use_llm,
                 )
+                if result.source == "groq_structured_output":
+                    mark_report_call()
         except Exception as exc:
             friendly_error(exc)
             return

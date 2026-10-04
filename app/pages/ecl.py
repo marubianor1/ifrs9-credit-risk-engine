@@ -6,6 +6,7 @@ import plotly.express as px
 import streamlit as st
 from app.components.layout import friendly_error, money, page_title, pct
 from app.services.ecl import ecl_kpis, load_ecl_artifacts, run_ecl_from_ui
+from app.services.runtime import full_mode_message, is_cloud_demo
 
 
 @st.cache_data(show_spinner=False)
@@ -74,7 +75,9 @@ def main() -> None:
     st.subheader("Alignment Notes")
     st.dataframe(artifacts["warnings"], use_container_width=True, hide_index=True)
 
-    if st.button("Run ECL", type="primary"):
+    if is_cloud_demo():
+        st.info(full_mode_message())
+    elif st.button("Run ECL", type="primary"):
         try:
             with st.spinner("Running ECL backend..."):
                 result = run_ecl_from_ui()

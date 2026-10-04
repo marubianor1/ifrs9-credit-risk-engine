@@ -1,0 +1,4 @@
+warning,detail,rows
+pd_curve_date_differs_from_reporting_date,Used 2025-06-30 for reporting date 2025-03-01.,306568
+missing_rating,Rows use portfolio LGD fallback where rating is missing.,0
+ecl_exceeds_ead,"Reported, not clipped.",0

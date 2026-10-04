@@ -5,6 +5,7 @@ from __future__ import annotations
 import pandas as pd
 
 from app.services.artifacts import artifact_path, discover_runs, read_csv, read_json, read_parquet
+from app.services.runtime import is_cloud_demo
 
 BASELINE_RUN = "lgd_v1_2"
 REJECTED_CHALLENGERS = ["lgd_v1_3", "lgd_fl_v1", "lgd_fl_v2"]
@@ -32,7 +33,7 @@ def lgd_governance_status() -> dict[str, object]:
 def load_lgd_artifacts(run_id: str = BASELINE_RUN) -> dict[str, pd.DataFrame | dict]:
     """Load LGD framework artifacts for one run."""
     root = artifact_path("artifacts", "lgd", run_id)
-    return {
+    payload = {
         "run": read_json(root / "run.json"),
         "backtesting": read_csv(root / "backtesting_split.csv"),
         "combined": read_csv(root / "combined_backtest.csv"),
@@ -43,8 +44,13 @@ def load_lgd_artifacts(run_id: str = BASELINE_RUN) -> dict[str, pd.DataFrame | d
         "recovery_timing": read_csv(root / "recovery_timing.csv"),
         "resolution": read_csv(root / "resolution_distribution.csv"),
         "model_metrics": read_csv(root / "model_metrics.csv"),
-        "episodes": read_parquet(root / "lgd_episodes.parquet"),
     }
+    payload["episodes"] = (
+        read_csv(root / "population_summary.csv")
+        if is_cloud_demo()
+        else read_parquet(root / "lgd_episodes.parquet")
+    )
+    return payload
 
 
 def load_lgd_forward_artifacts(run_id: str) -> dict[str, pd.DataFrame | dict]:
@@ -61,6 +67,13 @@ def load_lgd_forward_artifacts(run_id: str) -> dict[str, pd.DataFrame | dict]:
 
 def lgd_population_summary(episodes: pd.DataFrame) -> dict[str, float]:
     """Summarize LGD episode population."""
+    if {"episodes", "resolved", "cure_rate"}.issubset(episodes.columns):
+        row = episodes.iloc[0]
+        return {
+            "episodes": float(row["episodes"]),
+            "resolved": float(row["resolved"]),
+            "cure_rate": float(row["cure_rate"]),
+        }
     resolved = episodes["resolved"].fillna(False) if "resolved" in episodes else pd.Series(False)
     cure = episodes["resolution_type"].astype(str).str.upper().eq("CURE")
     return {

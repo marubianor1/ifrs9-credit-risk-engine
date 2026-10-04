@@ -1,133 +1,200 @@
 # IFRS 9 Credit Risk Engine
 
-Professional portfolio project to build a reproducible IFRS 9 credit risk and expected credit loss framework in Python.
+Professional portfolio/research project implementing a reproducible IFRS 9 credit risk and expected credit loss workflow in Python, with a Streamlit application for model review, scenario analysis, monitoring, and AI-assisted reporting.
 
-The intended end-to-end architecture covers data ingestion, data quality, default definition, scoring, rating, 12-month and lifetime PD, EAD, LGD, SICR, staging, forward-looking macroeconomic adjustment, scenario weighting, ECL, stress testing, validation, monitoring, reporting, and an application layer.
+This is not a regulatory production system. It is designed to demonstrate credit-risk engineering, model governance thinking, point-in-time controls, reproducible artifact generation, and deployment-safe presentation.
 
-Current status: **Application — Streamlit Phase 3 AI-assisted reporting and polish**.
+## Highlights
 
-The Source to Bronze ingestion pipeline, Bronze to Silver standardization pipeline, Gold point-in-time loan-month mart, default definition, PD target factory, temporal development-sample factory, traditional logistic scorecard experiment framework, calibrated PD framework, forward-looking Vasicek scenario framework, LGD framework, EAD framework, SICR/staging framework, ECL engine, Scenario Lab backend, Streamlit portfolio app, and Groq-backed AI-assisted report generator have been implemented for the local Freddie Mac sample archives.
+- Freddie Mac Source to Bronze ingestion and Bronze to Silver standardization.
+- Gold point-in-time analytical mart with leakage-aware feature selection.
+- Default definition, PD targets, temporal development sample factory, and logistic scorecards.
+- Calibrated behavioural PD, lifetime PD, rating scale, transitions, and forward-looking PD scenarios.
+- LGD, EAD, SICR/staging, ECL, Scenario Lab, monitoring, and Groq-backed report generation.
+- Two application modes: `local_full` for research workflows and `cloud_demo` for public deployment.
 
-The current project layer contains a lightweight Freddie Mac source inventory, schema drift notes, version-controlled Release 47 source and Silver schemas, a reproducible Bronze Parquet ingestion pipeline, a Silver standardization pipeline, a Gold analytical mart with leakage-aware feature registry selectors, compact default/PD target tables, temporal development metadata, logistic WOE scorecard runs for application and behavioural populations, calibrated behavioural PD artifacts with rating, TTC, lifetime, transition, and backtesting outputs, forward-looking Base/Upside/Downside PD scenario outputs, default-episode LGD artifacts with cure, non-cure severity, downturn, reconciliation, and backtesting outputs, amortizing mortgage EAD outputs, corrected SICR/staging outputs, ECL artifacts, scenario stress diagnostics, Streamlit pages for portfolio review and monitoring, and structured report generation over validated aggregate artifacts.
+## Architecture
 
-## Dataset
-
-The primary dataset planned for this project is the Freddie Mac Single-Family Loan-Level Dataset. Original datasets are not included in this repository and must be obtained from the official source under the applicable terms of use.
-
-Downloaded source files should remain outside version control. This project uses the following data-zone convention:
-
-- `data/raw/`: immutable source extracts or controlled local references.
-- `data/bronze/`: standardized but minimally processed data.
-- `data/silver/`: cleaned and conformed analytical data.
-- `data/gold/`: model-ready and reporting-ready datasets.
-
-## Reproducibility
-
-The project is configured with Poetry for dependency management. Configuration is stored under `config/` using repository-relative paths so the project can be reproduced on another machine.
-
-This is a portfolio/research implementation, not a regulatory production system.
-
-## Planned Components
-
-- ETL and ingestion for loan-level origination and monthly performance files.
-- Data quality checks and audit reporting.
-- Default definition and target construction.
-- Credit scoring and rating calibration.
-- PD, LGD, and EAD modelling.
-- SICR rules and IFRS 9 staging.
-- Forward-looking macroeconomic scenarios and Vasicek-style adjustments.
-- ECL calculation, stress testing, validation, monitoring, and reporting.
-- Streamlit application for exploration and final presentation.
-
-## Installation
-
-Install Poetry, then from the repository root run:
-
-```bash
-poetry install
+```mermaid
+flowchart LR
+    A[Freddie Mac source files] --> B[Bronze]
+    B --> C[Silver]
+    C --> D[Gold PIT mart]
+    D --> E[Scorecard / PD]
+    D --> F[LGD]
+    D --> G[EAD]
+    E --> H[SICR / Staging]
+    E --> I[Forward-looking PD]
+    F --> J[ECL Engine]
+    G --> J
+    H --> J
+    I --> J
+    J --> K[Scenario Lab]
+    E --> L[Monitoring]
+    F --> L
+    G --> L
+    H --> L
+    K --> M[Streamlit App]
+    L --> M
+    J --> M
+    M --> N[Groq AI-assisted Reports]
 ```
 
-Run Freddie Mac Source to Bronze ingestion for one year:
+## Data Source
+
+The project is built around the Freddie Mac Single-Family Loan-Level Dataset. Source data is not included in this repository. Users must obtain it directly from Freddie Mac under the applicable terms of use:
+
+https://www.freddiemac.com/research/datasets/sf-loanlevel-dataset
+
+Local data zones are intentionally ignored by Git:
+
+- `data/raw/`
+- `data/bronze/`
+- `data/silver/`
+- `data/gold/`
+- source ZIP/TXT files and Parquet loan-level artifacts
+
+## Application Modes
+
+Set the mode with `IFRS9_APP_MODE`.
+
+### `local_full`
+
+Default for local development. Supports full workflows where local data and artifacts exist:
+
+- model training and recalibration;
+- PD/LGD/EAD/SICR/ECL rebuilds;
+- full Scenario Lab execution;
+- local aggregate and loan-level artifacts.
+
+### `cloud_demo`
+
+Used for public Streamlit Community Cloud. Uses only compact aggregate artifacts under `deployment/` and does not require Freddie raw files, Bronze/Silver/Gold loan-level data, loan-level targets, staging, ECL snapshots, or scored rows.
+
+In cloud mode, recalculation buttons are hidden or disabled with a clear message. Scenario Lab compares only packaged Baseline, Mild deterioration, and Severe deterioration aggregate results.
+
+## Deployment Bundle
+
+Build the public bundle with:
 
 ```bash
-poetry run ifrs9 ingest-freddie --year 2012
+poetry run ifrs9 build-deployment-bundle
 ```
 
-Run all discovered local sample years:
+The bundle structure is:
 
-```bash
-poetry run ifrs9 ingest-freddie --all
+```text
+deployment/
+├── manifest.json
+├── portfolio/
+├── scoring/
+├── pd/
+├── lgd/
+├── ead/
+├── sicr/
+├── ecl/
+├── scenarios/
+└── monitoring/
 ```
 
-Build the Silver layer:
+The packaging step runs a safety audit and fails if prohibited loan-level files, absolute local paths, or secret-looking values are detected.
 
-```bash
-poetry run ifrs9 build-silver --all
-```
+## Streamlit App
 
-Build the Gold point-in-time mart:
-
-```bash
-poetry run ifrs9 build-mart --all
-```
-
-Build default events and PD target labels:
-
-```bash
-poetry run ifrs9 build-targets --all
-```
-
-Build temporal development sample metadata:
-
-```bash
-poetry run ifrs9 build-development-sample
-```
-
-Train logistic scorecards:
-
-```bash
-poetry run ifrs9 train-scorecard --population behavioural
-poetry run ifrs9 train-scorecard --population application
-```
-
-Build calibrated PD artifacts from an existing scorecard run:
-
-```bash
-poetry run ifrs9 build-pd --scorecard-run behavioural_qe_v1
-```
-
-Build forward-looking PD scenario artifacts from an existing PD run:
-
-```bash
-poetry run ifrs9 build-forward-looking --pd-run pd_behavioural_qe_v1
-```
-
-Build LGD artifacts from existing default episodes:
-
-```bash
-poetry run ifrs9 build-lgd
-```
-
-Build EAD, SICR/staging, ECL, and scenario artifacts:
-
-```bash
-poetry run ifrs9 build-ead
-poetry run ifrs9 build-staging
-poetry run ifrs9 build-ecl
-```
-
-Launch the Streamlit portfolio app:
+Launch locally:
 
 ```bash
 poetry run streamlit run app/streamlit_app.py
 ```
 
-Enable optional Groq AI-assisted reporting by setting `GROQ_API_KEY` in `.env` or as a Streamlit secret. The app remains functional without a key and uses deterministic template reports.
+Pages include:
 
-Run quality checks after the environment is installed:
+- Overview
+- Scoring Models
+- PD
+- LGD
+- EAD
+- SICR & Staging
+- ECL
+- Scenario Lab
+- Model Monitoring
+- Report Generator
+- About / Methodology
+
+## Groq AI-assisted Reporting
+
+The Report Generator uses Groq Free Tier when configured:
 
 ```bash
-poetry run ruff check .
-poetry run mypy src
-poetry run pytest
+GROQ_API_KEY=
+ENABLE_LLM_REPORTING=true
 ```
+
+Default model is configured in `config/reporting.yaml`:
+
+```yaml
+provider: groq
+model: openai/gpt-oss-20b
+reasoning_effort: low
+max_output_tokens: 4000
+```
+
+The LLM never calculates PD, LGD, EAD, SICR, Stage, ECL, scenario results, or model metrics. It receives a compact `ReportContext` built from validated aggregate artifacts and returns structured narrative. Missing keys, rate limits, or provider failures fall back to deterministic template reporting.
+
+## Local Setup
+
+Install Poetry and dependencies with Python 3.11:
+
+```bash
+poetry install
+```
+
+Useful local commands:
+
+```bash
+poetry run ifrs9 ingest-freddie --all
+poetry run ifrs9 build-silver --all
+poetry run ifrs9 build-mart --all
+poetry run ifrs9 build-targets --all
+poetry run ifrs9 build-development-sample
+poetry run ifrs9 train-scorecard --population behavioural
+poetry run ifrs9 build-pd --scorecard-run behavioural_qe_v1
+poetry run ifrs9 build-forward-looking --pd-run pd_behavioural_qe_v1
+poetry run ifrs9 build-lgd
+poetry run ifrs9 build-ead
+poetry run ifrs9 build-staging
+poetry run ifrs9 build-ecl
+poetry run ifrs9 build-deployment-bundle
+```
+
+## Streamlit Community Cloud
+
+Select Python 3.11 in Advanced Settings and configure secrets only in Streamlit Cloud:
+
+```toml
+GROQ_API_KEY=""
+ENABLE_LLM_REPORTING=true
+IFRS9_APP_MODE="cloud_demo"
+```
+
+Do not commit `.env` or `.streamlit/secrets.toml`.
+
+## Testing
+
+Run:
+
+```bash
+poetry check
+poetry run ruff check .
+poetry run pytest --cov=src/ifrs9
+```
+
+Historical strict `mypy` issues remain outside the deployment-critical path.
+
+## Limitations
+
+- This is a portfolio/research implementation, not a regulatory production platform.
+- Freddie Mac public data does not include every contractual, servicing, or internal risk-management field used in production IFRS 9 systems.
+- Baseline LGD is structural and macro-neutral in the ECL engine; rejected macro-LGD challengers remain documented.
+- Stage 3 ECL uses an approximation where detailed default cashflow timing is unavailable.
+- Monitoring thresholds are project thresholds, not regulatory limits.

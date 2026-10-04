@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -218,12 +219,37 @@ def write_context_snapshot(context: ReportContext, output_path: Path) -> Path:
 
 
 def _read_csv(repo_root: Path, relative_path: str) -> pd.DataFrame:
-    return pd.read_csv(repo_root / relative_path)
+    return pd.read_csv(_artifact_path(repo_root, relative_path))
 
 
 def _read_json(repo_root: Path, relative_path: str) -> dict[str, Any]:
-    with (repo_root / relative_path).open() as stream:
+    with _artifact_path(repo_root, relative_path).open() as stream:
         return json.load(stream)
+
+
+def _artifact_path(repo_root: Path, relative_path: str) -> Path:
+    if os.getenv("IFRS9_APP_MODE", "local_full").strip().lower() != "cloud_demo":
+        return repo_root / relative_path
+    parts = Path(relative_path).parts
+    if not parts or parts[0] != "artifacts":
+        return repo_root / relative_path
+    root = repo_root / "deployment"
+    if len(parts) >= 3 and parts[1] == "models" and parts[2] == "scorecard":
+        return root.joinpath("scoring", *parts[3:])
+    mapping = {
+        "ead": "ead",
+        "ecl": "ecl",
+        "lgd": "lgd",
+        "pd": "pd",
+        "scenarios": "scenarios",
+        "sicr": "sicr",
+    }
+    target = mapping.get(parts[1])
+    if target in {"ead", "ecl", "sicr"} and len(parts) >= 3:
+        return root.joinpath(target, *parts[3:])
+    if target is not None:
+        return root.joinpath(target, *parts[2:])
+    return repo_root / relative_path
 
 
 def _scenario_value(frame: pd.DataFrame, scenario: str) -> float:

@@ -1,0 +1,2 @@
+rows_with_actual_loss,actual_loss_sum,reconstructed_actual_loss_sum,reconstructed_difference_sum,reconstructed_difference_mean,reconstructed_correlation,economic_loss_sum,economic_difference_sum,economic_difference_mean,economic_correlation
+1736,61180920.24,61180920.24,1.8113599509206324e-10,1.0434101099773228e-13,1.0,74049657.45826036,12868737.218260348,7412.867061209878,0.9725094385020394

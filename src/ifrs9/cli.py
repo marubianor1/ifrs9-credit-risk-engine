@@ -190,6 +190,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Overwrite an existing ECL run with the same run ID",
     )
 
+    deployment = subparsers.add_parser(
+        "build-deployment-bundle",
+        help="Build compact public Streamlit deployment artifacts",
+    )
+    deployment.add_argument(
+        "--no-force",
+        action="store_true",
+        help="Do not overwrite an existing deployment directory",
+    )
+
     return parser
 
 
@@ -295,6 +305,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             run_id=args.run_id,
             force=args.force,
         )
+        return 0
+    if args.command == "build-deployment-bundle":
+        from ifrs9.deployment import build_deployment_bundle
+
+        build_deployment_bundle(force=not args.no_force)
         return 0
 
     parser.error(f"Unsupported command: {args.command}")

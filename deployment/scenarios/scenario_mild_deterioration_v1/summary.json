@@ -1,0 +1,18 @@
+{
+  "run_id": "scenario_mild_deterioration_v1",
+  "scenario": "mild_deterioration",
+  "description": "Illustrative moderate deterioration for UI controls.",
+  "baseline_ead": 73245322184.51,
+  "baseline_ecl": 690088387.1167374,
+  "stressed_ead": 74710228628.2002,
+  "stressed_ecl": 877723439.2053063,
+  "delta_ecl": 187635052.08856893,
+  "delta_ecl_pct": 0.27190002844784583,
+  "waterfall_delta": 187635052.08856893,
+  "processing_time_seconds": 55.79460058407858,
+  "created_at": "2026-10-03T13:00:09.521800+00:00",
+  "git_commit": {
+    "commit": "d94d92a",
+    "dirty": "True"
+  }
+}

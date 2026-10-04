@@ -1,0 +1,32 @@
+{
+  "app_mode": "cloud_demo",
+  "bundle_version": 1,
+  "excluded_data": [
+    "Freddie Mac ZIP/TXT source files",
+    "Bronze/Silver/Gold loan-level data",
+    "loan_static and loan_month marts",
+    "loan-level targets, staging, ECL, and reporting snapshots",
+    "loan-level model predictions and scored rows"
+  ],
+  "file_count": 166,
+  "git_commit": "4a10d32",
+  "source_runs": {
+    "ead": "ead_v1",
+    "ecl": "ecl_v1",
+    "lgd": [
+      "lgd_v1_2",
+      "lgd_v1_3"
+    ],
+    "pd": "pd_behavioural_qe_v1",
+    "scenarios": [
+      "scenario_baseline_v1",
+      "scenario_mild_deterioration_v1",
+      "scenario_severe_deterioration_v1"
+    ],
+    "scorecard": [
+      "behavioural_qe_v1",
+      "application_qe_v1"
+    ],
+    "sicr": "sicr_v1_1"
+  }
+}

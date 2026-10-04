@@ -1,0 +1,7 @@
+feature,coefficient,odds_ratio,standard_error,p_value,sign_expected,sign_matches_woe_expectation
+INTERCEPT,-5.587550097627062,0.00374418953633493,,,,
+current_actual_upb,-0.38986997727332695,0.6771449130024788,,,negative,True
+delinquency_months,-0.00018225684166111488,0.9998177597661081,,,negative,True
+max_delinquency_months_to_date,-0.00018225684166111488,0.9998177597661081,,,negative,True
+months_since_last_delinquency,-1.0207982143476242,0.3603072229634304,,,negative,True
+current_upb_to_original_upb,-1.3693034475387449,0.2542840200396989,,,negative,True

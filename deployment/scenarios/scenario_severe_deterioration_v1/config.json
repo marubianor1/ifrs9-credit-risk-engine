@@ -1,0 +1,37 @@
+{
+  "name": "severe_deterioration",
+  "description": "Illustrative severe deterioration for UI controls.",
+  "macro": {
+    "unemployment_shock": 3.0,
+    "hpi_shock": -15.0,
+    "gdp_shock": -3.0,
+    "mortgage_rate_shock": 1.5,
+    "rho_override": null,
+    "scenario_weights": {
+      "UPSIDE": 0.05,
+      "BASE": 0.35,
+      "DOWNSIDE": 0.6
+    }
+  },
+  "staging": {
+    "relative_pd_threshold": 1.5,
+    "absolute_pd_threshold": null,
+    "rating_downgrade_threshold": 2,
+    "dpd_backstop": 1,
+    "stage2_cure_probation": null
+  },
+  "portfolio": {
+    "rating_downgrade_share": 0.1,
+    "delinquency_1m_share": 0.05,
+    "delinquency_2m_share": 0.03,
+    "delinquency_3m_default_share": 0.01,
+    "seed": 20250301
+  },
+  "lgd": {
+    "method": "downturn_sensitivity",
+    "manual_overlay_pp": 3.0
+  },
+  "ead": {
+    "multiplier": 1.05
+  }
+}

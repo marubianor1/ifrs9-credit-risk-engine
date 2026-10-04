@@ -1,0 +1,168 @@
+{
+  "source_silver_version": "v1",
+  "years_processed": [
+    2012,
+    2013,
+    2014,
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025,
+    2026
+  ],
+  "loan_static_rows": 712500,
+  "loan_month_rows": 35667059,
+  "distinct_monthly_loans": 712490,
+  "feature_registry_version": "v1",
+  "build_timestamp": "2026-09-26T02:14:41.220542+00:00",
+  "processing_time": 349.4170797499828,
+  "status": "success",
+  "git": {
+    "commit": "32f0001",
+    "dirty": "True"
+  },
+  "partitions": [
+    {
+      "year": 2012,
+      "loan_static_rows": 50000,
+      "loan_month_rows": 4510559,
+      "started_at": "2026-09-26T02:08:51.807499+00:00",
+      "completed_at": "2026-09-26T02:09:40.659310+00:00",
+      "status": "success",
+      "processing_time_seconds": 48.85126012499677
+    },
+    {
+      "year": 2013,
+      "loan_static_rows": 50000,
+      "loan_month_rows": 4197674,
+      "started_at": "2026-09-26T02:09:40.659910+00:00",
+      "completed_at": "2026-09-26T02:10:21.381103+00:00",
+      "status": "success",
+      "processing_time_seconds": 40.728074125014246
+    },
+    {
+      "year": 2014,
+      "loan_static_rows": 50000,
+      "loan_month_rows": 3394276,
+      "started_at": "2026-09-26T02:10:21.476202+00:00",
+      "completed_at": "2026-09-26T02:10:58.282910+00:00",
+      "status": "success",
+      "processing_time_seconds": 36.80634566699155
+    },
+    {
+      "year": 2015,
+      "loan_static_rows": 50000,
+      "loan_month_rows": 3467166,
+      "started_at": "2026-09-26T02:10:58.284440+00:00",
+      "completed_at": "2026-09-26T02:11:35.782684+00:00",
+      "status": "success",
+      "processing_time_seconds": 37.497930166020524
+    },
+    {
+      "year": 2016,
+      "loan_static_rows": 50000,
+      "loan_month_rows": 3379650,
+      "started_at": "2026-09-26T02:11:35.787329+00:00",
+      "completed_at": "2026-09-26T02:12:17.342620+00:00",
+      "status": "success",
+      "processing_time_seconds": 41.55526595801348
+    },
+    {
+      "year": 2017,
+      "loan_static_rows": 50000,
+      "loan_month_rows": 2800219,
+      "started_at": "2026-09-26T02:12:17.346074+00:00",
+      "completed_at": "2026-09-26T02:12:51.504360+00:00",
+      "status": "success",
+      "processing_time_seconds": 34.15794254199136
+    },
+    {
+      "year": 2018,
+      "loan_static_rows": 50000,
+      "loan_month_rows": 2059564,
+      "started_at": "2026-09-26T02:12:51.505544+00:00",
+      "completed_at": "2026-09-26T02:13:14.899062+00:00",
+      "status": "success",
+      "processing_time_seconds": 23.393314208020456
+    },
+    {
+      "year": 2019,
+      "loan_static_rows": 50000,
+      "loan_month_rows": 1934614,
+      "started_at": "2026-09-26T02:13:14.900359+00:00",
+      "completed_at": "2026-09-26T02:13:33.282517+00:00",
+      "status": "success",
+      "processing_time_seconds": 18.381988083012402
+    },
+    {
+      "year": 2020,
+      "loan_static_rows": 50000,
+      "loan_month_rows": 2517857,
+      "started_at": "2026-09-26T02:13:33.285007+00:00",
+      "completed_at": "2026-09-26T02:13:49.635905+00:00",
+      "status": "success",
+      "processing_time_seconds": 16.350759125023615
+    },
+    {
+      "year": 2021,
+      "loan_static_rows": 50000,
+      "loan_month_rows": 2537054,
+      "started_at": "2026-09-26T02:13:49.638658+00:00",
+      "completed_at": "2026-09-26T02:14:03.441945+00:00",
+      "status": "success",
+      "processing_time_seconds": 13.804058958019596
+    },
+    {
+      "year": 2022,
+      "loan_static_rows": 50000,
+      "loan_month_rows": 2034798,
+      "started_at": "2026-09-26T02:14:03.443946+00:00",
+      "completed_at": "2026-09-26T02:14:14.426984+00:00",
+      "status": "success",
+      "processing_time_seconds": 10.98296058300184
+    },
+    {
+      "year": 2023,
+      "loan_static_rows": 50000,
+      "loan_month_rows": 1458169,
+      "started_at": "2026-09-26T02:14:14.428131+00:00",
+      "completed_at": "2026-09-26T02:14:22.279219+00:00",
+      "status": "success",
+      "processing_time_seconds": 7.851060834014788
+    },
+    {
+      "year": 2024,
+      "loan_static_rows": 50000,
+      "loan_month_rows": 952865,
+      "started_at": "2026-09-26T02:14:22.284655+00:00",
+      "completed_at": "2026-09-26T02:14:27.390912+00:00",
+      "status": "success",
+      "processing_time_seconds": 5.106241958972532
+    },
+    {
+      "year": 2025,
+      "loan_static_rows": 50000,
+      "loan_month_rows": 404946,
+      "started_at": "2026-09-26T02:14:27.391476+00:00",
+      "completed_at": "2026-09-26T02:14:29.295983+00:00",
+      "status": "success",
+      "processing_time_seconds": 1.904498958028853
+    },
+    {
+      "year": 2026,
+      "loan_static_rows": 12500,
+      "loan_month_rows": 17648,
+      "started_at": "2026-09-26T02:14:29.296323+00:00",
+      "completed_at": "2026-09-26T02:14:29.439048+00:00",
+      "status": "success",
+      "processing_time_seconds": 0.14273445797152817
+    }
+  ]
+}

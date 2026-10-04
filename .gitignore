@@ -88,3 +88,4 @@ historical_data*.zip
 !config/**/*.yaml
 !tests/fixtures/**/*.csv
 !tests/fixtures/**/*.txt
+!deployment/**

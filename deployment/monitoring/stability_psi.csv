@@ -1,0 +1,13 @@
+type,feature,comparison,psi
+score,score,TRAIN_TO_VALIDATION,0.2196157649528643
+score,score,TRAIN_TO_OOT,0.3395025468643592
+feature,current_actual_upb,TRAIN_TO_VALIDATION,0.0
+feature,current_actual_upb,TRAIN_TO_OOT,0.0
+feature,delinquency_months,TRAIN_TO_VALIDATION,0.0
+feature,delinquency_months,TRAIN_TO_OOT,0.0
+feature,max_delinquency_months_to_date,TRAIN_TO_VALIDATION,0.0
+feature,max_delinquency_months_to_date,TRAIN_TO_OOT,0.0
+feature,months_since_last_delinquency,TRAIN_TO_VALIDATION,0.0
+feature,months_since_last_delinquency,TRAIN_TO_OOT,0.0
+feature,current_upb_to_original_upb,TRAIN_TO_VALIDATION,0.18281549207278713
+feature,current_upb_to_original_upb,TRAIN_TO_OOT,0.18012541707380217

@@ -1,0 +1,8 @@
+term,coefficient
+INTERCEPT_VALIDATION_CALIBRATED,-3.33066907387547e-16
+stress_index,0.0
+stress_weight_unemployment_rate,1.0
+stress_weight_house_price_index_yoy,-1.0
+stress_weight_real_gdp_yoy,-0.5
+stress_weight_mortgage_rate,0.25
+stress_weight_systematic_factor,-0.5

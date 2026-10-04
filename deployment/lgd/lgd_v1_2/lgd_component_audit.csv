@@ -1,0 +1,11 @@
+component,component_type,treatment,non_null_rows,sum,negative_rows,positive_rows,used_in_freddie_reconciliation,used_in_economic_lgd
+zero_balance_removal_upb,TERMINAL_VALUE,exposure basis for Freddie reconciliation,14023,2930747796.0099998,0,14023,True,True
+ead_at_default,POINT_IN_TIME,fallback exposure for unresolved or missing terminal UPB,31685,7104762282.25,0,31685,False,False
+net_sale_proceeds,TERMINAL_VALUE,signed recovery credit,1736,-252407167.21999997,1725,2,True,True
+mi_recoveries,TERMINAL_VALUE,signed recovery credit,1735,-15293879.55,403,0,True,True
+non_mi_recoveries,TERMINAL_VALUE,signed recovery credit,1735,-4028339.8099999996,1204,1,True,True
+total_expenses,TERMINAL_VALUE,signed/positive expense,1735,29148032.82,12,1720,True,True
+delinquent_accrued_interest,TERMINAL_VALUE,interest owed at terminal event,1736,18489749.85,4,1726,True,True
+bankruptcy_cramdown_costs,TERMINAL_VALUE,additional economic cost,2116,425584.97000000003,0,11,False,True
+cumulative_modification_costs,CUMULATIVE,latest valid cumulative value only,14023,8392978.83,233,5761,False,True
+actual_loss,VALIDATION_ONLY,not used as a predictor or target input,1736,61180920.24,122,1613,False,False

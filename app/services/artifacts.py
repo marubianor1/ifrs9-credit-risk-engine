@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+
+from app.services.runtime import CLOUD_DEMO, app_mode
 
 
 def repo_root() -> Path:
@@ -17,6 +20,10 @@ def repo_root() -> Path:
 
 def artifact_path(*parts: str) -> Path:
     """Build an artifact path relative to the repository root."""
+    if app_mode() == CLOUD_DEMO:
+        mapped = _deployment_path(parts)
+        if mapped is not None:
+            return mapped
     return repo_root().joinpath(*parts)
 
 
@@ -46,6 +53,10 @@ def read_parquet(path: Path, columns: list[str] | None = None) -> pd.DataFrame:
 
 def discover_runs(category: str) -> list[str]:
     """Return available run IDs under an artifact category."""
+    if app_mode() == CLOUD_DEMO and category in {"ead", "ecl", "sicr"}:
+        cloud_runs = {"ead": "ead_v1", "ecl": "ecl_v1", "sicr": "sicr_v1_1"}
+        path = artifact_path("artifacts", category, cloud_runs[category])
+        return [cloud_runs[category]] if path.exists() else []
     root = artifact_path("artifacts", category)
     if not root.exists():
         return []
@@ -85,3 +96,47 @@ def data_period() -> str:
     if start and end:
         return f"{start} to {end}"
     return "See mart manifest"
+
+
+def mode_label() -> str:
+    """Return a UI-friendly app mode label."""
+    mode = app_mode()
+    return "Cloud demo" if mode == CLOUD_DEMO else "Local full"
+
+
+def configure_mode_from_streamlit_secrets(secrets: Any) -> None:
+    """Allow Streamlit secrets to set app mode when environment is unset."""
+    if os.getenv("IFRS9_APP_MODE"):
+        return
+    try:
+        value = secrets.get("IFRS9_APP_MODE")
+    except Exception:
+        value = None
+    if value:
+        os.environ["IFRS9_APP_MODE"] = str(value)
+
+
+def _deployment_path(parts: tuple[str, ...]) -> Path | None:
+    if not parts or parts[0] != "artifacts":
+        return None
+    root = repo_root() / "deployment"
+    if len(parts) >= 3 and parts[1] == "models" and parts[2] == "scorecard":
+        return root.joinpath("scoring", *parts[3:])
+    mapping = {
+        "ead": "ead",
+        "ecl": "ecl",
+        "lgd": "lgd",
+        "lgd_forward_looking": "lgd/forward_looking",
+        "mart": "portfolio",
+        "pd": "pd",
+        "scenarios": "scenarios",
+        "sicr": "sicr",
+    }
+    target = mapping.get(parts[1])
+    if target is None:
+        return None
+    if parts[1] == "mart":
+        return root.joinpath(target, *parts[2:])
+    if parts[1] in {"ead", "ecl", "sicr", "mart"} and len(parts) >= 3:
+        return root.joinpath(target, *parts[3:])
+    return root.joinpath(target, *parts[2:])

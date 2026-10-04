@@ -1,0 +1,6 @@
+feature
+current_actual_upb
+delinquency_months
+max_delinquency_months_to_date
+months_since_last_delinquency
+current_upb_to_original_upb

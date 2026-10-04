@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from typing import Any
 
 import streamlit as st
@@ -29,11 +30,26 @@ SCENARIO_RUNS = [
     "scenario_mild_deterioration_v1",
     "scenario_severe_deterioration_v1",
 ]
+REPORT_COOLDOWN_SECONDS = 30
 
 
 def groq_key_available() -> bool:
     """Return whether a Groq API key is configured."""
-    return bool(_api_key())
+    return _llm_reporting_enabled() and bool(_api_key())
+
+
+def report_cooldown_remaining() -> int:
+    """Return remaining per-session LLM cooldown seconds."""
+    last_call = st.session_state.get("last_llm_report_call_at")
+    if not last_call:
+        return 0
+    elapsed = time.time() - float(last_call)
+    return max(0, int(REPORT_COOLDOWN_SECONDS - elapsed))
+
+
+def mark_report_call() -> None:
+    """Record a per-session LLM call timestamp."""
+    st.session_state["last_llm_report_call_at"] = time.time()
 
 
 def build_context_for_ui(
@@ -96,3 +112,15 @@ def _api_key() -> str | None:
         return st.secrets.get("GROQ_API_KEY")
     except Exception:
         return None
+
+
+def _llm_reporting_enabled() -> bool:
+    raw = os.getenv("ENABLE_LLM_REPORTING")
+    if raw is None:
+        try:
+            raw = st.secrets.get("ENABLE_LLM_REPORTING")
+        except Exception:
+            raw = None
+    if raw is None:
+        return True
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}

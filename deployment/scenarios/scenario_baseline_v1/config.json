@@ -1,0 +1,33 @@
+{
+  "name": "baseline",
+  "description": "Accepted ecl_v1 assumptions with no scenario-lab overlays.",
+  "macro": {
+    "unemployment_shock": 0.0,
+    "hpi_shock": 0.0,
+    "gdp_shock": 0.0,
+    "mortgage_rate_shock": 0.0,
+    "rho_override": null,
+    "scenario_weights": null
+  },
+  "staging": {
+    "relative_pd_threshold": null,
+    "absolute_pd_threshold": null,
+    "rating_downgrade_threshold": null,
+    "dpd_backstop": null,
+    "stage2_cure_probation": null
+  },
+  "portfolio": {
+    "rating_downgrade_share": 0.0,
+    "delinquency_1m_share": 0.0,
+    "delinquency_2m_share": 0.0,
+    "delinquency_3m_default_share": 0.0,
+    "seed": 1729
+  },
+  "lgd": {
+    "method": "structural_base",
+    "manual_overlay_pp": 0.0
+  },
+  "ead": {
+    "multiplier": 1.0
+  }
+}

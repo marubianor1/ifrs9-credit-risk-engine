@@ -5,6 +5,7 @@ from __future__ import annotations
 import streamlit as st
 
 from app.components.layout import render_sidebar
+from app.services.artifacts import configure_mode_from_streamlit_secrets
 from app.state import init_state
 
 st.set_page_config(
@@ -13,6 +14,7 @@ st.set_page_config(
     layout="wide",
 )
 
+configure_mode_from_streamlit_secrets(st.secrets)
 init_state()
 render_sidebar()
 

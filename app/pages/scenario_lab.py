@@ -5,6 +5,7 @@ from __future__ import annotations
 import plotly.express as px
 import streamlit as st
 from app.components.layout import friendly_error, money, page_title, pct
+from app.services.runtime import full_mode_message, is_cloud_demo
 from app.services.scenario_lab import (
     load_lab_config,
     load_scenario_result,
@@ -37,6 +38,43 @@ def _share_default(defaults: dict, key: str) -> float:
     return float(defaults["portfolio"][key] * 100)
 
 
+def _render_result(result: dict) -> None:
+    summary = result["summary"]
+    stage = result["stage"]
+    rating = result["rating"]
+    waterfall = result["waterfall"]
+
+    st.subheader("Baseline vs Stressed ECL")
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Baseline EAD", money(summary["baseline_ead"]))
+    k2.metric("Baseline ECL", money(summary["baseline_ecl"]))
+    k3.metric("Stressed ECL", money(summary["stressed_ecl"]))
+    k4.metric("Delta ECL", money(summary["delta_ecl"]), pct(summary["delta_ecl_pct"]))
+
+    left, right = st.columns(2)
+    with left:
+        st.subheader("Stage Migration")
+        chart = stage.melt(
+            id_vars=["stage"],
+            value_vars=["baseline_ecl", "stressed_ecl"],
+            var_name="case",
+            value_name="ecl",
+        )
+        stage_fig = px.bar(chart, x="stage", y="ecl", color="case", barmode="group")
+        st.plotly_chart(stage_fig, use_container_width=True)
+        st.dataframe(stage, use_container_width=True, hide_index=True)
+    with right:
+        st.subheader("Driver Waterfall")
+        waterfall_fig = px.bar(waterfall, x="driver", y="effect", color="driver")
+        st.plotly_chart(waterfall_fig, use_container_width=True)
+        st.dataframe(waterfall, use_container_width=True, hide_index=True)
+
+    st.subheader("ECL Delta by Rating")
+    rating_fig = px.bar(rating, x="rating", y="delta_ecl", color="rating")
+    st.plotly_chart(rating_fig, use_container_width=True)
+    st.dataframe(rating, use_container_width=True, hide_index=True)
+
+
 def main() -> None:
     page_title("Scenario Lab", "Stress existing ECL outputs without refitting parent models.")
     lab_config = load_lab_config()
@@ -61,6 +99,26 @@ def main() -> None:
         "Scenario Lab overlays are stress assumptions for portfolio analysis. They are not "
         "newly fitted PD, LGD, EAD, or staging models."
     )
+    if is_cloud_demo():
+        st.info(full_mode_message())
+        preset_map = {
+            "Baseline": "scenario_baseline_v1",
+            "Mild deterioration": "scenario_mild_deterioration_v1",
+            "Severe deterioration": "scenario_severe_deterioration_v1",
+        }
+        scenario_summaries = []
+        for label, scenario_id in preset_map.items():
+            try:
+                summary = _load_result(scenario_id)["summary"]
+            except Exception as exc:
+                friendly_error(exc)
+                return
+            scenario_summaries.append({"label": label, **summary})
+        st.subheader("Preset Scenario Comparison")
+        st.dataframe(scenario_summaries, use_container_width=True, hide_index=True)
+        selected_cloud = st.selectbox("Scenario result", list(preset_map))
+        _render_result(_load_result(preset_map[selected_cloud]))
+        return
 
     with st.form("scenario_controls"):
         st.subheader("Macro / PD")
@@ -261,40 +319,7 @@ def main() -> None:
     except Exception:
         result = _load_result("scenario_baseline_v1")
 
-    summary = result["summary"]
-    stage = result["stage"]
-    rating = result["rating"]
-    waterfall = result["waterfall"]
-
-    st.subheader("Baseline vs Stressed ECL")
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Baseline EAD", money(summary["baseline_ead"]))
-    k2.metric("Baseline ECL", money(summary["baseline_ecl"]))
-    k3.metric("Stressed ECL", money(summary["stressed_ecl"]))
-    k4.metric("Delta ECL", money(summary["delta_ecl"]), pct(summary["delta_ecl_pct"]))
-
-    left, right = st.columns(2)
-    with left:
-        st.subheader("Stage Migration")
-        chart = stage.melt(
-            id_vars=["stage"],
-            value_vars=["baseline_ecl", "stressed_ecl"],
-            var_name="case",
-            value_name="ecl",
-        )
-        stage_fig = px.bar(chart, x="stage", y="ecl", color="case", barmode="group")
-        st.plotly_chart(stage_fig, use_container_width=True)
-        st.dataframe(stage, use_container_width=True, hide_index=True)
-    with right:
-        st.subheader("Driver Waterfall")
-        waterfall_fig = px.bar(waterfall, x="driver", y="effect", color="driver")
-        st.plotly_chart(waterfall_fig, use_container_width=True)
-        st.dataframe(waterfall, use_container_width=True, hide_index=True)
-
-    st.subheader("ECL Delta by Rating")
-    rating_fig = px.bar(rating, x="rating", y="delta_ecl", color="rating")
-    st.plotly_chart(rating_fig, use_container_width=True)
-    st.dataframe(rating, use_container_width=True, hide_index=True)
+    _render_result(result)
 
 
 main()
