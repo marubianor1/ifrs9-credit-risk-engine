@@ -8,7 +8,7 @@ import re
 from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from ifrs9.reporting.context import ReportContext, ReportingConfig
 
@@ -16,18 +16,22 @@ from ifrs9.reporting.context import ReportContext, ReportingConfig
 class GeneratedReport(BaseModel):
     """Structured narrative returned by the reporting layer."""
 
+    model_config = ConfigDict(extra="forbid")
+
     title: str
-    executive_summary: str = ""
-    portfolio_position: str = ""
-    key_risk_movements: str = ""
-    model_performance: str = ""
-    scenario_analysis: str = ""
-    limitations: str = ""
-    management_actions: str = ""
+    executive_summary: str | None
+    portfolio_position: str | None
+    key_risk_movements: str | None
+    model_performance: str | None
+    scenario_analysis: str | None
+    limitations: str | None
+    management_actions: str | None
 
 
 class ReportGenerationResult(BaseModel):
     """Report generation result with validation metadata."""
+
+    model_config = ConfigDict(extra="forbid")
 
     report: GeneratedReport
     generated_at: str
@@ -142,7 +146,7 @@ def _generate_with_groq(
 
     client = Groq(api_key=api_key)
     prompt = _prompt(context)
-    schema = GeneratedReport.model_json_schema()
+    schema = groq_strict_json_schema(GeneratedReport)
     kwargs: dict[str, Any] = {
         "model": config.model,
         "messages": [
@@ -178,6 +182,33 @@ def _generate_with_groq(
         return GeneratedReport.model_validate_json(payload)
     except ValidationError:
         return GeneratedReport.model_validate(json.loads(payload))
+
+
+def groq_strict_json_schema(model: type[BaseModel]) -> dict[str, Any]:
+    """Return a Groq strict Structured Outputs compatible JSON Schema."""
+    schema = model.model_json_schema()
+    _close_object_schemas(schema)
+    return schema
+
+
+def _close_object_schemas(schema: Any) -> None:
+    if isinstance(schema, dict):
+        properties = schema.get("properties")
+        schema_type = schema.get("type")
+        if schema_type == "object" or isinstance(properties, dict):
+            schema["additionalProperties"] = False
+            schema["required"] = list(properties) if isinstance(properties, dict) else []
+        for key in ("properties", "$defs"):
+            nested = schema.get(key)
+            if isinstance(nested, dict):
+                for item in nested.values():
+                    _close_object_schemas(item)
+        for key in ("items", "anyOf", "allOf", "oneOf"):
+            nested = schema.get(key)
+            _close_object_schemas(nested)
+    elif isinstance(schema, list):
+        for item in schema:
+            _close_object_schemas(item)
 
 
 def _fallback_result(context: ReportContext, reason: str) -> ReportGenerationResult:

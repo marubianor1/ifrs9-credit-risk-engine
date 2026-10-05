@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import json
+import sys
+import types
 from pathlib import Path
+from typing import Any
 
 from ifrs9.reporting import (
     REPORT_TYPES,
@@ -12,6 +16,7 @@ from ifrs9.reporting import (
     render_report_markdown,
     validate_report_numbers,
 )
+from ifrs9.reporting.generator import _generate_with_groq, groq_strict_json_schema
 
 
 def test_report_context_generation_has_no_loan_level_payload() -> None:
@@ -78,7 +83,12 @@ def test_structured_output_parsing_with_mocked_groq(monkeypatch) -> None:
         return GeneratedReport(
             title="Executive IFRS 9 Summary",
             executive_summary="Portfolio weighted ECL is $690.09M.",
+            portfolio_position=None,
+            key_risk_movements=None,
+            model_performance=None,
+            scenario_analysis=None,
             limitations="AI-assisted commentary over validated artifacts.",
+            management_actions=None,
         )
 
     monkeypatch.setattr("ifrs9.reporting.generator._generate_with_groq", fake_provider)
@@ -99,6 +109,12 @@ def test_unsupported_number_validation() -> None:
     report = GeneratedReport(
         title="Bad Report",
         executive_summary="The portfolio has an unsupported loss estimate of $123.45M.",
+        portfolio_position=None,
+        key_risk_movements=None,
+        model_performance=None,
+        scenario_analysis=None,
+        limitations=None,
+        management_actions=None,
     )
 
     unsupported = validate_report_numbers(report, context)
@@ -122,3 +138,76 @@ def test_export_generation() -> None:
     assert markdown.startswith("# ")
     assert "<html>" in html
     assert result.model_dump()["report"]["title"]
+
+
+def test_groq_schema_is_strict_closed_recursively() -> None:
+    schema = groq_strict_json_schema(GeneratedReport)
+
+    _assert_strict_objects(schema)
+
+
+def test_groq_request_uses_strict_compatible_schema(monkeypatch) -> None:
+    context = build_report_context(
+        repo_root=Path.cwd(),
+        report_type="Executive IFRS 9 Summary",
+        audience="Risk Committee",
+        detail="Standard",
+    )
+    config = load_reporting_config(Path.cwd())
+    captured: dict[str, Any] = {}
+    payload = GeneratedReport(
+        title="Executive IFRS 9 Summary",
+        executive_summary="AI-assisted summary.",
+        portfolio_position=None,
+        key_risk_movements=None,
+        model_performance=None,
+        scenario_analysis=None,
+        limitations=None,
+        management_actions=None,
+    ).model_dump_json()
+
+    class _FakeCompletions:
+        def create(self, **kwargs):
+            captured.update(kwargs)
+            message = types.SimpleNamespace(content=payload)
+            choice = types.SimpleNamespace(message=message)
+            return types.SimpleNamespace(choices=[choice])
+
+    class _FakeGroq:
+        def __init__(self, api_key: str) -> None:
+            self.api_key = api_key
+            self.chat = types.SimpleNamespace(
+                completions=types.SimpleNamespace(create=_FakeCompletions().create),
+            )
+
+    fake_module = types.ModuleType("groq")
+    fake_module.Groq = _FakeGroq
+    monkeypatch.setitem(sys.modules, "groq", fake_module)
+
+    report = _generate_with_groq(context, config, "test-key")
+
+    response_format = captured["response_format"]
+    assert report.title == "Executive IFRS 9 Summary"
+    assert response_format["type"] == "json_schema"
+    assert response_format["json_schema"]["strict"] is True
+    assert response_format["json_schema"]["name"] == "ifrs9_report"
+    _assert_strict_objects(response_format["json_schema"]["schema"])
+    json.dumps(response_format)
+
+
+def _assert_strict_objects(schema: Any) -> None:
+    if isinstance(schema, dict):
+        properties = schema.get("properties")
+        if schema.get("type") == "object" or isinstance(properties, dict):
+            assert schema.get("additionalProperties") is False
+            assert set(schema.get("required", [])) == set(properties or {})
+        for key in ("properties", "$defs"):
+            nested = schema.get(key)
+            if isinstance(nested, dict):
+                for value in nested.values():
+                    _assert_strict_objects(value)
+        for key in ("items", "anyOf", "allOf", "oneOf"):
+            _assert_strict_objects(schema.get(key))
+    elif isinstance(schema, list):
+        for item in schema:
+            _assert_strict_objects(item)
