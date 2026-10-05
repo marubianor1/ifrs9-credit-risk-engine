@@ -12,6 +12,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from app.components.layout import render_sidebar  # noqa: E402
+from app.components.theme import apply_streamlit_theme  # noqa: E402
 from app.services.artifacts import configure_mode_from_streamlit_secrets  # noqa: E402
 from app.state import init_state  # noqa: E402
 
@@ -21,6 +22,7 @@ st.set_page_config(
     layout="wide",
 )
 
+apply_streamlit_theme()
 configure_mode_from_streamlit_secrets(st.secrets)
 init_state()
 render_sidebar()

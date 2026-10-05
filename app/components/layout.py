@@ -4,22 +4,19 @@ from __future__ import annotations
 
 import streamlit as st
 
+from app.components.formatting import au_date, percentage, usd
+from app.components.theme import version_caption
 from app.services.artifacts import data_period, git_commit, mode_label
 
 
 def money(value: float) -> str:
     """Format a currency value compactly."""
-    abs_value = abs(value)
-    if abs_value >= 1_000_000_000:
-        return f"${value / 1_000_000_000:,.2f}B"
-    if abs_value >= 1_000_000:
-        return f"${value / 1_000_000:,.2f}M"
-    return f"${value:,.0f}"
+    return usd(value)
 
 
 def pct(value: float) -> str:
     """Format a decimal percentage."""
-    return f"{value * 100:,.2f}%"
+    return percentage(value)
 
 
 def page_title(title: str, caption: str) -> None:
@@ -39,10 +36,11 @@ def render_sidebar() -> None:
             help="Phase 1 starts from persisted artifacts and does not retrain on load.",
         )
         st.divider()
-        st.metric("Project status", "Phase 3 UI")
+        st.metric("Project status", "Visual UX V2")
         st.metric("Execution mode", mode_label())
+        st.caption(version_caption())
         st.caption("Portfolio/research implementation, not regulatory production readiness.")
-        st.write("Reporting date: `2025-03-01`")
+        st.write(f"Reporting date: `{au_date('2025-03-01')}`")
         st.write(f"Git commit: `{git_commit()}`")
         st.write(f"Data period: {data_period()}")
         st.divider()
