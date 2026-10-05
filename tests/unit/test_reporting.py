@@ -127,6 +127,36 @@ def test_unsupported_number_validation() -> None:
     assert "$123.45M" in unsupported
 
 
+def test_percentage_claim_validation_is_rounding_aware() -> None:
+    context = build_report_context(
+        repo_root=Path.cwd(),
+        report_type="Executive IFRS 9 Summary",
+        audience="Risk Committee",
+        detail="Standard",
+    )
+
+    assert _unsupported_for_text("Stage 3 coverage is 38.16%.", context) == []
+    assert "38.15%" in _unsupported_for_text("Stage 3 coverage is 38.15%.", context)
+    assert "39.16%" in _unsupported_for_text("Stage 3 coverage is 39.16%.", context)
+    assert "3.816%" in _unsupported_for_text("Stage 3 coverage is 3.816%.", context)
+    assert "381.6%" in _unsupported_for_text("Stage 3 coverage is 381.6%.", context)
+
+
+def test_currency_and_count_claim_validation_is_formatting_aware() -> None:
+    context = build_report_context(
+        repo_root=Path.cwd(),
+        report_type="Executive IFRS 9 Summary",
+        audience="Risk Committee",
+        detail="Standard",
+    )
+
+    assert _unsupported_for_text("Weighted ECL is $690.1M.", context) == []
+    assert "$691.1M" in _unsupported_for_text("Weighted ECL is $691.1M.", context)
+    assert _unsupported_for_text("Total EAD is $73.25B.", context) == []
+    assert _unsupported_for_text("The portfolio has 306,568 loans.", context) == []
+    assert "306,000" in _unsupported_for_text("The portfolio has 306,000 loans.", context)
+
+
 def test_export_generation() -> None:
     context = build_report_context(
         repo_root=Path.cwd(),
@@ -329,3 +359,17 @@ def _assert_no_nested_schema_features(payload: Any) -> None:
     elif isinstance(payload, list):
         for item in payload:
             _assert_no_nested_schema_features(item)
+
+
+def _unsupported_for_text(text: str, context) -> list[str]:
+    report = GeneratedReport(
+        title="Validation test",
+        executive_summary=text,
+        portfolio_position=None,
+        key_risk_movements=None,
+        model_performance=None,
+        scenario_analysis=None,
+        limitations=None,
+        management_actions=None,
+    )
+    return validate_report_numbers(report, context)

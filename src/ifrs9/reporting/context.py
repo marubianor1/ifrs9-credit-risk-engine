@@ -48,6 +48,14 @@ class SourceRuns(BaseModel):
     scenario: str
 
 
+class AllowedNumericClaim(BaseModel):
+    """Validated numeric metric available for report claim checking."""
+
+    path: str
+    value: float
+    unit: str
+
+
 class ReportContext(BaseModel):
     """Compact context passed to narrative generation."""
 
@@ -66,7 +74,7 @@ class ReportContext(BaseModel):
     monitoring: dict[str, Any]
     scenario: dict[str, Any]
     limitations: list[str]
-    allowed_numbers: list[str]
+    allowed_numbers: list[AllowedNumericClaim]
     request_profile: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -191,7 +199,7 @@ def build_report_context(
         },
     }
     context_payload = _project_report_context(report_type, full_payload, scenario_run)
-    allowed_numbers = sorted(_collect_number_strings(context_payload))
+    allowed_numbers = _collect_numeric_claims(context_payload)
     return ReportContext(
         report_type=report_type,
         audience=audience,
@@ -421,32 +429,61 @@ def _records(frame: pd.DataFrame) -> list[dict[str, Any]]:
     return sanitized.to_dict(orient="records")
 
 
-def _collect_number_strings(value: Any) -> set[str]:
-    found: set[str] = set()
+def _collect_numeric_claims(value: Any, path: str = "") -> list[AllowedNumericClaim]:
+    claims: list[AllowedNumericClaim] = []
     if isinstance(value, dict):
-        for item in value.values():
-            found.update(_collect_number_strings(item))
+        for key, item in value.items():
+            child_path = f"{path}.{key}" if path else str(key)
+            claims.extend(_collect_numeric_claims(item, child_path))
     elif isinstance(value, list):
-        for item in value:
-            found.update(_collect_number_strings(item))
+        for index, item in enumerate(value):
+            claims.extend(_collect_numeric_claims(item, f"{path}[{index}]"))
     elif isinstance(value, int | float) and not isinstance(value, bool):
-        found.update(_number_variants(float(value)))
-    return found
+        claims.append(AllowedNumericClaim(path=path, value=float(value), unit=_numeric_unit(path)))
+    return claims
 
 
-def _number_variants(value: float) -> set[str]:
-    variants = {
-        str(int(value)) if value.is_integer() else str(value),
-        f"{value:,.0f}",
-        f"{value:,.1f}",
-        f"{value:,.2f}",
-        f"{value:.3f}",
-        f"{value:.4f}",
-    }
-    if abs(value) < 1:
-        variants.add(f"{value * 100:.2f}%")
-    if abs(value) >= 1_000_000_000:
-        variants.add(f"${value / 1_000_000_000:,.2f}B")
-    if abs(value) >= 1_000_000:
-        variants.add(f"${value / 1_000_000:,.2f}M")
-    return variants
+def _numeric_unit(path: str) -> str:
+    name = path.lower()
+    if any(
+        token in name
+        for token in [
+            "coverage_ratio",
+            "oe_ratio",
+            "cure_rate",
+            "bad_rate",
+            "ead_ratio",
+            "mean_pd",
+            "min_pd",
+            "max_pd",
+            "delta_ecl_pct",
+            "mape",
+            "psi",
+            "gini",
+            "ks",
+            "auc",
+            "brier",
+            "rmse",
+            "mae",
+        ]
+    ):
+        return "percentage_ratio"
+    if any(token in name for token in ["ead", "ecl"]):
+        return "currency"
+    if any(
+        token in name
+        for token in [
+            "loans",
+            "rows",
+            "defaults",
+            "population",
+            "stage",
+            "true_positive",
+            "false_positive",
+            "true_negative",
+            "false_negative",
+            "observable_defaults",
+        ]
+    ):
+        return "count"
+    return "numeric"

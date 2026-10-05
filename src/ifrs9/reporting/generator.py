@@ -7,6 +7,7 @@ import math
 import os
 import re
 from datetime import UTC, datetime
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -117,12 +118,11 @@ def generate_report(
 def validate_report_numbers(report: GeneratedReport, context: ReportContext) -> list[str]:
     """Return numerical references that are not traceable to report context."""
     text = "\n".join(str(value) for value in report.model_dump().values())
-    allowed = set(context.allowed_numbers)
     unsupported = []
     for number in _extract_numbers(text):
         if _is_ignorable_number(number):
             continue
-        if number not in allowed and _normalized_number(number) not in allowed:
+        if not _match_numeric_claim(number, context):
             unsupported.append(number)
     return sorted(set(unsupported))
 
@@ -380,6 +380,84 @@ def _is_ignorable_number(value: str) -> bool:
 
 def _normalized_number(value: str) -> str:
     return value.replace(",", "")
+
+
+def _match_numeric_claim(rendered: str, context: ReportContext) -> bool:
+    parsed = _parse_rendered_number(rendered)
+    if parsed is None:
+        return False
+    for claim in context.allowed_numbers:
+        if _claim_matches_source(parsed, claim.value, claim.unit):
+            return True
+    return False
+
+
+def _parse_rendered_number(rendered: str) -> dict[str, Any] | None:
+    original = rendered.strip()
+    is_currency = original.startswith("$")
+    is_percent = original.endswith("%")
+    suffix = None
+    body = original
+    if is_currency:
+        body = body[1:]
+    if body.endswith("%"):
+        body = body[:-1]
+    if body.endswith(("M", "B")):
+        suffix = body[-1]
+        body = body[:-1]
+    body = body.replace(",", "")
+    try:
+        value = Decimal(body)
+    except InvalidOperation:
+        return None
+    return {
+        "rendered": original,
+        "value": value,
+        "decimals": _display_decimals(body),
+        "is_currency": is_currency,
+        "is_percent": is_percent,
+        "suffix": suffix,
+    }
+
+
+def _claim_matches_source(parsed: dict[str, Any], source_value: float, unit: str) -> bool:
+    source = Decimal(str(source_value))
+    rendered = parsed["value"]
+    decimals = int(parsed["decimals"])
+    suffix = parsed["suffix"]
+    if parsed["is_percent"]:
+        if unit != "percentage_ratio":
+            return False
+        source_percent = _round_decimal(source * Decimal("100"), 4)
+        return _round_decimal(source_percent, decimals) == rendered
+    if suffix in {"M", "B"}:
+        if unit != "currency":
+            return False
+        divisor = Decimal("1000000") if suffix == "M" else Decimal("1000000000")
+        return _round_decimal(source / divisor, decimals) == rendered
+    if parsed["is_currency"]:
+        if unit != "currency":
+            return False
+        return _round_decimal(source, decimals) == rendered
+    if unit == "count":
+        if decimals > 0:
+            return (
+                _round_decimal(source, decimals) == rendered
+                and source == source.to_integral_value()
+            )
+        return source == rendered
+    return _round_decimal(source, decimals) == rendered
+
+
+def _round_decimal(value: Decimal, decimals: int) -> Decimal:
+    quantum = Decimal("1").scaleb(-decimals)
+    return value.quantize(quantum, rounding=ROUND_HALF_UP)
+
+
+def _display_decimals(value: str) -> int:
+    if "." not in value:
+        return 0
+    return len(value.rsplit(".", maxsplit=1)[1])
 
 
 def _heading_to_html(line: str) -> str:
