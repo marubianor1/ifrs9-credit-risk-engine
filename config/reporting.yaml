@@ -1,7 +1,8 @@
 reporting:
   provider: groq
   model: openai/gpt-oss-20b
-  max_output_tokens: 4000
+  max_output_tokens: 1200
+  context_char_limit: 14000
   temperature: 0.2
   reasoning_effort: low
   templates:

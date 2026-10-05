@@ -29,7 +29,8 @@ class ReportingConfig(BaseModel):
 
     provider: str = "groq"
     model: str = "openai/gpt-oss-20b"
-    max_output_tokens: int = 4000
+    max_output_tokens: int = 1200
+    context_char_limit: int = 14_000
     temperature: float = 0.2
     reasoning_effort: str | None = None
     templates: dict[str, dict[str, list[str]]] = Field(default_factory=dict)
@@ -66,6 +67,7 @@ class ReportContext(BaseModel):
     scenario: dict[str, Any]
     limitations: list[str]
     allowed_numbers: list[str]
+    request_profile: dict[str, Any] = Field(default_factory=dict)
 
 
 def load_reporting_config(repo_root: Path, path: Path | None = None) -> ReportingConfig:
@@ -93,7 +95,9 @@ def build_report_context(
     ecl_stage = _read_csv(repo_root, "artifacts/ecl/ecl_v1/ecl_by_stage.csv")
     ecl_scenario = _read_csv(repo_root, "artifacts/ecl/ecl_v1/ecl_by_scenario.csv")
     ecl_rating = _read_csv(repo_root, "artifacts/ecl/ecl_v1/ecl_by_rating.csv")
+    ecl_downturn = _read_csv(repo_root, "artifacts/ecl/ecl_v1/downturn_lgd_sensitivity.csv")
     staging = _read_csv(repo_root, "artifacts/sicr/sicr_v1_1/stage_distribution.csv")
+    triggers = _read_csv(repo_root, "artifacts/sicr/sicr_v1_1/trigger_distribution.csv")
     migrations = _read_csv(repo_root, "artifacts/sicr/sicr_v1_1/stage_migrations.csv")
     pd_backtest = _read_csv(repo_root, "artifacts/pd/pd_behavioural_qe_v1/backtesting_split.csv")
     pd_rating = _read_csv(repo_root, "artifacts/pd/pd_behavioural_qe_v1/rating_summary.csv")
@@ -105,6 +109,14 @@ def build_report_context(
     scenario_waterfall = _read_csv(
         repo_root,
         f"artifacts/scenarios/{scenario_run}/driver_waterfall.csv",
+    )
+    scenario_stage = _read_csv(
+        repo_root,
+        f"artifacts/scenarios/{scenario_run}/stage_comparison.csv",
+    )
+    scenario_rating = _read_csv(
+        repo_root,
+        f"artifacts/scenarios/{scenario_run}/rating_comparison.csv",
     )
     scorecard = _read_csv(
         repo_root,
@@ -121,7 +133,7 @@ def build_report_context(
     stage_records = _records(ecl_stage)
     rating_records = _records(ecl_rating.head(10))
 
-    context_payload = {
+    full_payload = {
         "portfolio": {
             "total_ead": total_ead,
             "weighted_ecl": weighted_ecl,
@@ -131,7 +143,8 @@ def build_report_context(
         "staging": {
             "stage_distribution": stage_records,
             "active_stage_distribution": _records(staging),
-            "migration_summary": _records(migrations.head(12)),
+            "trigger_distribution": _records(triggers),
+            "migration_summary": _records(migrations.head(8)),
         },
         "ecl": {
             "base_ecl": base_ecl,
@@ -140,6 +153,7 @@ def build_report_context(
             "weighted_ecl": weighted_ecl,
             "by_stage": stage_records,
             "by_rating": rating_records,
+            "downturn_sensitivity": _records(ecl_downturn),
         },
         "pd": {
             "run_id": "pd_behavioural_qe_v1",
@@ -172,8 +186,11 @@ def build_report_context(
             "delta_ecl": scenario_summary.get("delta_ecl"),
             "delta_ecl_pct": scenario_summary.get("delta_ecl_pct"),
             "driver_waterfall": _records(scenario_waterfall),
+            "stage_comparison": _records(scenario_stage),
+            "rating_comparison": _records(scenario_rating.head(5)),
         },
     }
+    context_payload = _project_report_context(report_type, full_payload, scenario_run)
     allowed_numbers = sorted(_collect_number_strings(context_payload))
     return ReportContext(
         report_type=report_type,
@@ -207,6 +224,12 @@ def build_report_context(
             ),
         ],
         allowed_numbers=allowed_numbers,
+        request_profile={
+            "report_context_profile": report_type,
+            "included_sections": [
+                key for key, value in context_payload.items() if value not in ({}, [], None)
+            ],
+        },
         **context_payload,
     )
 
@@ -216,6 +239,143 @@ def write_context_snapshot(context: ReportContext, output_path: Path) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(context.model_dump_json(indent=2) + "\n")
     return output_path
+
+
+def _project_report_context(
+    report_type: str,
+    payload: dict[str, dict[str, Any]],
+    scenario_run: str,
+) -> dict[str, dict[str, Any]]:
+    empty = {
+        "portfolio": {},
+        "staging": {},
+        "ecl": {},
+        "pd": {},
+        "lgd": {},
+        "ead": {},
+        "monitoring": {},
+        "scenario": {},
+    }
+    if report_type == "Executive IFRS 9 Summary":
+        projected = empty | {
+            "portfolio": payload["portfolio"],
+            "ecl": {
+                "scenario_totals": _select_keys(
+                    payload["ecl"],
+                    ["base_ecl", "upside_ecl", "downside_ecl", "weighted_ecl"],
+                ),
+                "by_stage": _compact_records(
+                    payload["ecl"]["by_stage"],
+                    [
+                        "stage",
+                        "loans",
+                        "total_ead",
+                        "weighted_ecl",
+                        "coverage_ratio",
+                    ],
+                ),
+                "downturn_sensitivity": payload["ecl"]["downturn_sensitivity"],
+                "main_rating_concentration": _top_records(
+                    payload["ecl"]["by_rating"],
+                    sort_key="total_ead",
+                    limit=3,
+                    fields=["rating", "loans", "total_ead", "weighted_ecl", "coverage_ratio"],
+                ),
+            },
+        }
+    elif report_type == "Provisioning Report":
+        projected = empty | {
+            "portfolio": payload["portfolio"],
+            "ecl": {
+                "by_stage": _compact_records(
+                    payload["ecl"]["by_stage"],
+                    ["stage", "loans", "total_ead", "weighted_ecl", "coverage_ratio"],
+                ),
+                "scenario_totals": _select_keys(
+                    payload["ecl"],
+                    ["base_ecl", "upside_ecl", "downside_ecl", "weighted_ecl"],
+                ),
+                "rating_ecl_summary": _top_records(
+                    payload["ecl"]["by_rating"],
+                    sort_key="weighted_ecl",
+                    limit=5,
+                    fields=["rating", "loans", "total_ead", "weighted_ecl", "coverage_ratio"],
+                ),
+                "downturn_sensitivity": payload["ecl"]["downturn_sensitivity"],
+            },
+        }
+    elif report_type == "Scorecard / PD Model Report":
+        projected = empty | {
+            "pd": payload["pd"],
+            "monitoring": {
+                "scorecard_metrics": payload["monitoring"]["scorecard_metrics"],
+                "max_scorecard_psi": payload["monitoring"]["max_scorecard_psi"],
+                "threshold_label": payload["monitoring"]["threshold_label"],
+            },
+        }
+    elif report_type == "LGD Model Review":
+        projected = empty | {"lgd": payload["lgd"]}
+    elif report_type == "EAD Model Review":
+        projected = empty | {"ead": payload["ead"]}
+    elif report_type == "SICR / Staging Report":
+        projected = empty | {"staging": payload["staging"]}
+    elif report_type == "Scenario Stress Report":
+        projected = empty | {
+            "scenario": {
+                "run_id": payload["scenario"].get("run_id", scenario_run),
+                "name": payload["scenario"].get("name"),
+                "baseline_ecl": payload["scenario"].get("baseline_ecl"),
+                "stressed_ecl": payload["scenario"].get("stressed_ecl"),
+                "delta_ecl": payload["scenario"].get("delta_ecl"),
+                "delta_ecl_pct": payload["scenario"].get("delta_ecl_pct"),
+                "driver_waterfall": payload["scenario"]["driver_waterfall"],
+                "stage_comparison": _compact_records(
+                    payload["scenario"]["stage_comparison"],
+                    [
+                        "stage",
+                        "baseline_ead",
+                        "baseline_ecl",
+                        "stressed_ead",
+                        "stressed_ecl",
+                        "delta_ecl",
+                    ],
+                ),
+                "rating_comparison": _compact_records(
+                    payload["scenario"]["rating_comparison"],
+                    ["rating", "baseline_ecl", "stressed_ecl", "delta_ecl", "delta_ecl_pct"],
+                ),
+            },
+        }
+    elif report_type == "Model Monitoring Report":
+        projected = empty | {"monitoring": payload["monitoring"]}
+    else:
+        projected = empty | {
+            "portfolio": payload["portfolio"],
+            "ecl": _select_keys(
+                payload["ecl"],
+                ["base_ecl", "upside_ecl", "downside_ecl", "weighted_ecl"],
+            ),
+        }
+    return projected
+
+
+def _select_keys(mapping: dict[str, Any], keys: list[str]) -> dict[str, Any]:
+    return {key: mapping[key] for key in keys if key in mapping}
+
+
+def _compact_records(records: list[dict[str, Any]], fields: list[str]) -> list[dict[str, Any]]:
+    return [{field: row.get(field) for field in fields if field in row} for row in records]
+
+
+def _top_records(
+    records: list[dict[str, Any]],
+    *,
+    sort_key: str,
+    limit: int,
+    fields: list[str],
+) -> list[dict[str, Any]]:
+    rows = sorted(records, key=lambda row: float(row.get(sort_key) or 0.0), reverse=True)
+    return _compact_records(rows[:limit], fields)
 
 
 def _read_csv(repo_root: Path, relative_path: str) -> pd.DataFrame:

@@ -21,6 +21,7 @@ from ifrs9.reporting import (
     render_report_html,
     render_report_markdown,
 )
+from ifrs9.reporting.generator import groq_request_profile
 
 REPORT_TYPES = list(BACKEND_REPORT_TYPES)
 AUDIENCES = ["Executive", "Risk Committee", "Model Validation", "Technical"]
@@ -93,7 +94,29 @@ def generate_report_for_ui(
         api_key=_api_key(),
         use_llm=use_llm,
     )
-    return result, context.model_dump()
+    payload = context.model_dump()
+    payload["request_profile"] = result.request_profile or groq_request_profile(context, config)
+    return result, payload
+
+
+def request_profile_for_ui(
+    *,
+    report_type: str,
+    audience: str,
+    detail: str,
+    scenario_run: str,
+) -> dict[str, Any]:
+    """Return compact LLM request diagnostics without exposing prompt text."""
+    root = repo_root()
+    config = load_reporting_config(root)
+    context = build_report_context(
+        repo_root=root,
+        report_type=report_type,
+        audience=audience,
+        detail=detail,
+        scenario_run=scenario_run,
+    )
+    return groq_request_profile(context, config)
 
 
 def export_payloads(result: ReportGenerationResult) -> dict[str, str]:

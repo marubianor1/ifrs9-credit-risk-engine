@@ -15,12 +15,23 @@ from app.services.reporting import (
     groq_key_available,
     mark_report_call,
     report_cooldown_remaining,
+    request_profile_for_ui,
 )
 
 
 @st.cache_data(show_spinner=False)
 def _context_preview(report_type: str, audience: str, detail: str, scenario_run: str):
     return build_context_for_ui(
+        report_type=report_type,
+        audience=audience,
+        detail=detail,
+        scenario_run=scenario_run,
+    )
+
+
+@st.cache_data(show_spinner=False)
+def _request_profile(report_type: str, audience: str, detail: str, scenario_run: str):
+    return request_profile_for_ui(
         report_type=report_type,
         audience=audience,
         detail=detail,
@@ -70,6 +81,19 @@ def main() -> None:
         st.json(context.source_runs.model_dump())
         for item in context.limitations:
             st.caption(f"- {item}")
+
+    try:
+        profile = _request_profile(report_type, audience, detail, scenario_run)
+        with st.expander("LLM request profile", expanded=False):
+            st.write(f"Report context: `{profile['report_context_profile']}`")
+            st.write(
+                "Approximate input size: "
+                f"{profile['context_char_count']:,} chars / "
+                f"{profile['estimated_input_tokens']:,} estimated tokens"
+            )
+            st.write(f"Output token cap: `{profile['max_completion_tokens']}`")
+    except Exception as exc:
+        st.caption(f"LLM request profile unavailable: {exc}")
 
     if st.button("Generate Report", type="primary"):
         try:

@@ -16,7 +16,12 @@ from ifrs9.reporting import (
     render_report_markdown,
     validate_report_numbers,
 )
-from ifrs9.reporting.generator import _generate_with_groq, groq_response_format
+from ifrs9.reporting.generator import (
+    _generate_with_groq,
+    groq_messages,
+    groq_request_profile,
+    groq_response_format,
+)
 
 
 def test_report_context_generation_has_no_loan_level_payload() -> None:
@@ -183,6 +188,89 @@ def test_groq_response_format_is_explicit_minimal_strict_schema() -> None:
         assert schema["properties"][field]["type"] == ["string", "null"]
     assert schema["properties"]["title"]["type"] == "string"
     _assert_no_nested_schema_features(response_format)
+
+
+def test_report_type_projection_excludes_unrelated_sections() -> None:
+    executive = build_report_context(
+        repo_root=Path.cwd(),
+        report_type="Executive IFRS 9 Summary",
+        audience="Risk Committee",
+        detail="Standard",
+    )
+    lgd = build_report_context(
+        repo_root=Path.cwd(),
+        report_type="LGD Model Review",
+        audience="Model Validation",
+        detail="Standard",
+    )
+
+    assert executive.portfolio["total_ead"] > 0
+    assert executive.ecl["by_stage"]
+    assert executive.pd == {}
+    assert executive.lgd == {}
+    assert executive.monitoring == {}
+    assert "scorecard_metrics" not in executive.model_dump_json()
+    assert "backtesting_by_split" not in executive.lgd
+    assert lgd.lgd["run_id"] == "lgd_v1_2"
+    assert lgd.pd == {}
+    assert "rating_summary" not in lgd.model_dump_json()
+
+
+def test_all_report_contexts_are_compact_and_non_loan_level() -> None:
+    config = load_reporting_config(Path.cwd())
+    for report_type in REPORT_TYPES:
+        context = build_report_context(
+            repo_root=Path.cwd(),
+            report_type=report_type,
+            audience="Risk Committee",
+            detail="Standard",
+        )
+        profile = groq_request_profile(context, config)
+        payload = context.model_dump_json()
+
+        assert "loan_id" not in payload
+        assert "part-ecl.parquet" not in payload
+        assert profile["context_char_count"] <= config.context_char_limit
+        assert profile["max_completion_tokens"] == 1200
+
+
+def test_oversized_prompt_context_is_safely_compacted() -> None:
+    config = load_reporting_config(Path.cwd())
+    context = build_report_context(
+        repo_root=Path.cwd(),
+        report_type="Scorecard / PD Model Report",
+        audience="Technical",
+        detail="Detailed",
+    )
+    huge_rows = [{"metric": f"metric_{idx}", "value": idx} for idx in range(500)]
+    oversized = context.model_copy(
+        deep=True,
+        update={"pd": {"run_id": "pd_behavioural_qe_v1", "large_optional_diagnostic": huge_rows}},
+    )
+
+    messages, profile = groq_messages(oversized, config)
+
+    assert profile["context_char_count"] <= config.context_char_limit
+    user_message = messages[1]["content"]
+    assert "metric_0" in user_message
+    assert "metric_3" not in user_message
+
+
+def test_structured_output_schema_remains_unchanged() -> None:
+    schema = groq_response_format()["json_schema"]["schema"]
+
+    assert schema["additionalProperties"] is False
+    assert schema["properties"]["executive_summary"]["type"] == ["string", "null"]
+    assert schema["required"] == [
+        "title",
+        "executive_summary",
+        "portfolio_position",
+        "key_risk_movements",
+        "model_performance",
+        "scenario_analysis",
+        "limitations",
+        "management_actions",
+    ]
 
 
 def test_groq_request_uses_strict_compatible_schema(monkeypatch) -> None:

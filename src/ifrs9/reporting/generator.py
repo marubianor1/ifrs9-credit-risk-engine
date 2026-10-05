@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 from datetime import UTC, datetime
@@ -39,6 +40,7 @@ class ReportGenerationResult(BaseModel):
     source_runs: dict[str, str]
     unsupported_numbers: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    request_profile: dict[str, Any] = Field(default_factory=dict)
 
 
 GROQ_REPORT_SCHEMA: dict[str, Any] = {
@@ -66,6 +68,11 @@ GROQ_REPORT_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
+SYSTEM_PROMPT = (
+    "Narrate only supplied data. Never calculate IFRS 9 values or invent numbers. "
+    "Use null for unavailable sections. Return JSON matching the strict schema."
+)
+
 
 def generate_report(
     *,
@@ -75,17 +82,22 @@ def generate_report(
     use_llm: bool = True,
 ) -> ReportGenerationResult:
     """Generate a structured report from validated context only."""
+    request_profile = groq_request_profile(context, config)
     if not use_llm:
-        return _fallback_result(context, "LLM disabled by user selection.")
+        return _fallback_result(context, "LLM disabled by user selection.", request_profile)
     resolved_key = api_key or os.getenv("GROQ_API_KEY")
     if not resolved_key:
-        return _fallback_result(context, "GROQ_API_KEY is not configured.")
+        return _fallback_result(context, "GROQ_API_KEY is not configured.", request_profile)
     if config.provider.lower() != "groq":
-        return _fallback_result(context, f"Unsupported reporting provider: {config.provider}.")
+        return _fallback_result(
+            context,
+            f"Unsupported reporting provider: {config.provider}.",
+            request_profile,
+        )
     try:
         report = _generate_with_groq(context, config, resolved_key)
     except Exception as exc:
-        return _fallback_result(context, f"Groq generation failed: {exc}")
+        return _fallback_result(context, f"Groq generation failed: {exc}", request_profile)
 
     unsupported = validate_report_numbers(report, context)
     warnings = []
@@ -98,6 +110,7 @@ def generate_report(
         source_runs=context.source_runs.model_dump(),
         unsupported_numbers=unsupported,
         warnings=warnings,
+        request_profile=request_profile,
     )
 
 
@@ -171,19 +184,10 @@ def _generate_with_groq(
     from groq import Groq
 
     client = Groq(api_key=api_key)
-    prompt = _prompt(context)
+    messages, _ = groq_messages(context, config)
     kwargs: dict[str, Any] = {
         "model": config.model,
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "You write concise IFRS 9 portfolio commentary using only supplied JSON. "
-                    "Never calculate, infer, or invent metrics."
-                ),
-            },
-            {"role": "user", "content": prompt},
-        ],
+        "messages": messages,
         "max_completion_tokens": config.max_output_tokens,
         "response_format": groq_response_format(),
     }
@@ -202,6 +206,40 @@ def _generate_with_groq(
         return GeneratedReport.model_validate(json.loads(payload))
 
 
+def groq_messages(
+    context: ReportContext,
+    config: ReportingConfig,
+) -> tuple[list[dict[str, str]], dict[str, Any]]:
+    """Return compact Groq messages and request-size diagnostics."""
+    payload = _prompt_payload(context)
+    user_prompt = _user_prompt(payload)
+    profile = _request_profile(context, user_prompt, config)
+    if profile["context_char_count"] > config.context_char_limit:
+        payload = _compact_prompt_payload(payload, list_limit=3)
+        user_prompt = _user_prompt(payload)
+        profile = _request_profile(context, user_prompt, config)
+    if profile["context_char_count"] > config.context_char_limit:
+        payload = _compact_prompt_payload(payload, list_limit=1)
+        user_prompt = _user_prompt(payload)
+        profile = _request_profile(context, user_prompt, config)
+    if profile["context_char_count"] > config.context_char_limit:
+        msg = (
+            f"Report context exceeds configured Groq budget: "
+            f"{profile['context_char_count']} chars > {config.context_char_limit} chars."
+        )
+        raise ValueError(msg)
+    return [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_prompt},
+    ], profile
+
+
+def groq_request_profile(context: ReportContext, config: ReportingConfig) -> dict[str, Any]:
+    """Return request diagnostics without exposing prompt text."""
+    _, profile = groq_messages(context, config)
+    return profile
+
+
 def groq_response_format() -> dict[str, Any]:
     """Return the exact strict response_format payload sent to Groq."""
     return {
@@ -214,7 +252,11 @@ def groq_response_format() -> dict[str, Any]:
     }
 
 
-def _fallback_result(context: ReportContext, reason: str) -> ReportGenerationResult:
+def _fallback_result(
+    context: ReportContext,
+    reason: str,
+    request_profile: dict[str, Any] | None = None,
+) -> ReportGenerationResult:
     report = _fallback_report(context)
     return ReportGenerationResult(
         report=report,
@@ -222,6 +264,7 @@ def _fallback_result(context: ReportContext, reason: str) -> ReportGenerationRes
         source="deterministic_template",
         source_runs=context.source_runs.model_dump(),
         warnings=[reason, "LLM reporting unavailable. Quantitative pages remain functional."],
+        request_profile=request_profile or {},
     )
 
 
@@ -229,20 +272,28 @@ def _fallback_report(context: ReportContext) -> GeneratedReport:
     portfolio = context.portfolio
     ecl = context.ecl
     scenario = context.scenario
+    total_ead = float(portfolio.get("total_ead") or 0.0)
+    weighted_ecl = float(portfolio.get("weighted_ecl") or ecl.get("weighted_ecl") or 0.0)
+    coverage_ratio = float(portfolio.get("coverage_ratio") or 0.0)
+    scenario_totals = ecl.get("scenario_totals", ecl)
+    base_ecl = float(scenario_totals.get("base_ecl") or ecl.get("base_ecl") or 0.0)
+    upside_ecl = float(scenario_totals.get("upside_ecl") or ecl.get("upside_ecl") or 0.0)
+    downside_ecl = float(scenario_totals.get("downside_ecl") or ecl.get("downside_ecl") or 0.0)
+    delta_ecl = float(scenario.get("delta_ecl") or 0.0)
     return GeneratedReport(
         title=f"{context.report_type} - {context.reporting_date}",
         executive_summary=(
-            f"Portfolio weighted ECL is ${portfolio['weighted_ecl'] / 1_000_000:,.2f}M "
-            f"on total EAD of ${portfolio['total_ead'] / 1_000_000_000:,.2f}B, with "
-            f"coverage of {portfolio['coverage_ratio'] * 100:.2f}%."
+            f"Portfolio weighted ECL is ${weighted_ecl / 1_000_000:,.2f}M "
+            f"on total EAD of ${total_ead / 1_000_000_000:,.2f}B, with "
+            f"coverage of {coverage_ratio * 100:.2f}%."
         ),
         portfolio_position=(
             f"Stage 1, Stage 2, and Stage 3 results are sourced from "
             f"{context.source_runs.ecl} and {context.source_runs.staging}."
         ),
         key_risk_movements=(
-            f"The selected scenario run {scenario['run_id']} changes ECL by "
-            f"${float(scenario['delta_ecl']) / 1_000_000:,.2f}M versus baseline."
+            f"The selected scenario run {scenario.get('run_id', context.source_runs.scenario)} "
+            f"changes ECL by ${delta_ecl / 1_000_000:,.2f}M versus baseline."
         ),
         model_performance=(
             f"PD, LGD, and EAD diagnostics are sourced from {context.source_runs.pd}, "
@@ -250,9 +301,9 @@ def _fallback_report(context: ReportContext) -> GeneratedReport:
             "recalculated."
         ),
         scenario_analysis=(
-            f"Base ECL is ${ecl['base_ecl'] / 1_000_000:,.2f}M, Upside ECL is "
-            f"${ecl['upside_ecl'] / 1_000_000:,.2f}M, and Downside ECL is "
-            f"${ecl['downside_ecl'] / 1_000_000:,.2f}M."
+            f"Base ECL is ${base_ecl / 1_000_000:,.2f}M, Upside ECL is "
+            f"${upside_ecl / 1_000_000:,.2f}M, and Downside ECL is "
+            f"${downside_ecl / 1_000_000:,.2f}M."
         ),
         limitations=" ".join(context.limitations),
         management_actions=(
@@ -262,14 +313,55 @@ def _fallback_report(context: ReportContext) -> GeneratedReport:
     )
 
 
-def _prompt(context: ReportContext) -> str:
-    return (
-        "You are drafting AI-assisted IFRS 9 portfolio commentary. "
-        "Use only the JSON context below. Do not calculate or invent metrics. "
-        "If a number is not present in the context, omit it. "
-        "Return only JSON matching the provided schema.\n\n"
-        f"{context.model_dump_json(indent=2)}"
+def _prompt_payload(context: ReportContext) -> dict[str, Any]:
+    return context.model_dump(exclude={"allowed_numbers", "generated_at", "request_profile"})
+
+
+def _user_prompt(payload: dict[str, Any]) -> str:
+    return "Use this compact validated IFRS 9 context only:\n" + json.dumps(
+        payload,
+        separators=(",", ":"),
+        default=str,
     )
+
+
+def _request_profile(
+    context: ReportContext,
+    user_prompt: str,
+    config: ReportingConfig,
+) -> dict[str, Any]:
+    char_count = len(SYSTEM_PROMPT) + len(user_prompt)
+    return {
+        "context_char_count": char_count,
+        "estimated_input_tokens": math.ceil(char_count / 4),
+        "max_completion_tokens": config.max_output_tokens,
+        "context_char_limit": config.context_char_limit,
+        "report_context_profile": context.report_type,
+    }
+
+
+def _compact_prompt_payload(payload: dict[str, Any], *, list_limit: int) -> dict[str, Any]:
+    compacted = json.loads(json.dumps(payload, default=str))
+    compacted["limitations"] = compacted.get("limitations", [])[:5]
+    for section in ("staging", "ecl", "pd", "lgd", "ead", "monitoring", "scenario"):
+        if isinstance(compacted.get(section), dict):
+            _limit_lists(compacted[section], list_limit)
+    return compacted
+
+
+def _limit_lists(value: Any, limit: int) -> None:
+    if isinstance(value, dict):
+        for key, item in list(value.items()):
+            if isinstance(item, list):
+                value[key] = item[:limit]
+                for nested in value[key]:
+                    _limit_lists(nested, limit)
+            else:
+                _limit_lists(item, limit)
+    elif isinstance(value, list):
+        del value[limit:]
+        for item in value:
+            _limit_lists(item, limit)
 
 
 def _extract_numbers(text: str) -> list[str]:
