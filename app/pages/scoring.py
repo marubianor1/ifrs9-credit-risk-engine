@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import pandas as pd
 import plotly.express as px
 import streamlit as st
-from app.components.charts import finish_chart, metric_bar
-from app.components.formatting import percentage
+from app.components.charts import calibration_scatter, finish_chart, metric_bar
+from app.components.formatting import SPLIT_ORDER, ordered_splits, percentage
 from app.components.layout import friendly_error, page_title
 from app.components.metrics import kpi_row
 from app.components.tables import bad_rate_table, format_table
@@ -55,12 +56,16 @@ def main() -> None:
     yearly = artifacts["yearly"]
     bands = artifacts["bands"]
     deciles = artifacts["deciles"]
+    split_order = ordered_splits(metrics["split"].tolist())
+    metrics = metrics.assign(
+        split=pd.Categorical(metrics["split"], categories=split_order, ordered=True)
+    ).sort_values("split")
 
     st.caption(f"Selected run: `{selected}` | Reporting date: 1 Mar 2025")
     selected_split = st.selectbox(
         "Performance split",
-        metrics["split"].tolist(),
-        index=metrics["split"].tolist().index("OOT") if "OOT" in metrics["split"].tolist() else 0,
+        split_order,
+        index=split_order.index("OOT") if "OOT" in split_order else 0,
     )
     split_row = metrics.loc[metrics["split"].eq(selected_split)].iloc[0]
     kpi_row(
@@ -133,6 +138,12 @@ def main() -> None:
             var_name="measure",
             value_name="rate",
         )
+        comparison["measure"] = comparison["measure"].map(
+            {
+                "observed_bad_rate": "Observed default rate",
+                "predicted_bad_rate": "Predicted PD",
+            }
+        )
         fig = px.bar(
             comparison,
             x="split",
@@ -140,8 +151,15 @@ def main() -> None:
             color="measure",
             barmode="group",
             title="Observed default rate and predicted PD by split",
+            category_orders={"split": SPLIT_ORDER},
+            labels={"split": "Split", "rate": "Rate", "measure": "Measure"},
+            color_discrete_map={
+                "Observed default rate": "#286090",
+                "Predicted PD": "#287C8E",
+            },
         )
         fig.update_traces(hovertemplate="%{x}<br>%{y:.2%}<extra></extra>")
+        fig.update_yaxes(tickformat=".1%")
         st.plotly_chart(finish_chart(fig, yaxis_title="Rate"), use_container_width=True)
 
     tab_perf, tab_cal, tab_stability, tab_features = st.tabs(
@@ -163,17 +181,11 @@ def main() -> None:
     with tab_cal:
         st.subheader("Calibration curve")
         if {"predicted_bad_rate", "observed_bad_rate"}.issubset(calibration.columns):
-            fig = px.line(
-                calibration,
-                x="predicted_bad_rate",
-                y="observed_bad_rate",
-                color="split" if "split" in calibration.columns else None,
-                markers=True,
-                title="Observed default rate against predicted PD",
-            )
-            fig.update_traces(hovertemplate="Predicted %{x:.2%}<br>Observed %{y:.2%}")
             st.plotly_chart(
-                finish_chart(fig, yaxis_title="Observed default rate"),
+                calibration_scatter(
+                    calibration,
+                    title="Calibration backtest: observed default rate versus predicted PD",
+                ),
                 use_container_width=True,
             )
         st.dataframe(format_table(calibration), use_container_width=True, hide_index=True)

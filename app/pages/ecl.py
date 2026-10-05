@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import streamlit as st
-from app.components.charts import rating_bar, scenario_bar, stage_bar
+from app.components.charts import rating_bar, scenario_delta_bar, stage_bar
 from app.components.formatting import au_date, percentage, usd
 from app.components.layout import friendly_error, page_title
 from app.components.metrics import kpi_row
@@ -81,7 +81,7 @@ def main() -> None:
         )
     with right:
         st.plotly_chart(
-            scenario_bar(scenario, title="Scenario ECL under Base, Upside and Downside"),
+            scenario_delta_bar(scenario, title="Scenario sensitivity: ECL delta versus Base"),
             use_container_width=True,
         )
         st.plotly_chart(
@@ -98,6 +98,8 @@ def main() -> None:
         st.dataframe(format_table(stage), use_container_width=True, hide_index=True)
     with st.expander("Structural LGD versus downturn sensitivity", expanded=True):
         st.dataframe(format_table(artifacts["downturn"]), use_container_width=True, hide_index=True)
+    with st.expander("Absolute scenario ECL values", expanded=False):
+        st.dataframe(format_table(scenario), use_container_width=True, hide_index=True)
     with st.expander("Alignment and data-quality notes", expanded=False):
         st.dataframe(format_table(artifacts["warnings"]), use_container_width=True, hide_index=True)
 

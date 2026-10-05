@@ -1,7 +1,17 @@
 from __future__ import annotations
 
-from app.components.formatting import au_date, bps, percentage, ratio, usd
-from app.components.tables import calibration_status
+import pandas as pd
+from app.components.charts import calibration_scatter, scenario_delta_bar, stage_bar
+from app.components.formatting import (
+    au_date,
+    bps,
+    display_label,
+    ordered_splits,
+    percentage,
+    ratio,
+    usd,
+)
+from app.components.tables import bad_rate_table, calibration_status
 from app.components.theme import (
     RATING_COLOURS,
     SCENARIO_COLOURS,
@@ -15,6 +25,7 @@ def test_currency_formatting_uses_usd_conventions() -> None:
     assert usd(73_245_322_184.51) == "US$73.2bn"
     assert usd(690_088_387.12) == "US$690.1m"
     assert usd(1250) == "US$1,250"
+    assert "..." not in usd(73_245_322_184.51)
 
 
 def test_australian_date_formatting() -> None:
@@ -50,6 +61,80 @@ def test_bad_rate_calibration_status_logic() -> None:
 
 
 def test_monitoring_rag_labels_include_text_marker() -> None:
-    assert status_label("GREEN") == "OK - GREEN"
-    assert status_label("AMBER") == "WATCH - AMBER"
-    assert status_label("RED") == "ACTION - RED"
+    assert status_label("GREEN") == "● - GREEN"
+    assert status_label("AMBER") == "▲ - AMBER"
+    assert status_label("RED") == "■ - RED"
+
+
+def test_split_order_and_display_label_mapping() -> None:
+    assert ordered_splits(["OOT", "TRAIN", "VALIDATION"]) == ["TRAIN", "VALIDATION", "OOT"]
+    assert display_label("observed_bad_rate") == "Observed default rate"
+    assert display_label("predicted_pd") == "Predicted PD"
+    assert display_label("oe_ratio") == "O/E"
+
+
+def test_bad_rate_table_uses_display_labels_and_status_markers() -> None:
+    metrics = pd.DataFrame(
+        [
+            {"split": "OOT", "observed_bad_rate": 0.006, "predicted_bad_rate": 0.005},
+            {"split": "TRAIN", "observed_bad_rate": 0.004, "predicted_bad_rate": 0.004},
+            {
+                "split": "VALIDATION",
+                "observed_bad_rate": 0.018,
+                "predicted_bad_rate": 0.005,
+            },
+        ]
+    )
+    table = bad_rate_table(metrics)
+
+    assert table.columns.tolist() == [
+        "Split",
+        "Observed default rate",
+        "Predicted PD",
+        "Difference",
+        "O/E",
+        "Calibration status",
+    ]
+    assert table["Split"].astype(str).tolist() == ["TRAIN", "VALIDATION", "OOT"]
+    assert table.loc[0, "Calibration status"].startswith("●")
+
+
+def test_percentage_axis_helper_formats_rates() -> None:
+    frame = pd.DataFrame(
+        [{"stage": 1, "coverage_ratio": 0.01}, {"stage": 2, "coverage_ratio": 0.25}]
+    )
+    fig = stage_bar(frame, value="coverage_ratio", title="Coverage", yaxis_title="Coverage")
+
+    assert fig.layout.yaxis.tickformat == ".0%"
+
+
+def test_calibration_chart_uses_scatter_and_reference_line() -> None:
+    frame = pd.DataFrame(
+        [
+            {"split": "TRAIN", "predicted_bad_rate": 0.01, "observed_bad_rate": 0.012},
+            {
+                "split": "VALIDATION",
+                "predicted_bad_rate": 0.02,
+                "observed_bad_rate": 0.018,
+            },
+            {"split": "OOT", "predicted_bad_rate": 0.03, "observed_bad_rate": 0.032},
+        ]
+    )
+    fig = calibration_scatter(frame, title="Calibration")
+
+    assert fig.data[0].mode == "markers"
+    assert any(trace.name == "Observed = Predicted" and trace.mode == "lines" for trace in fig.data)
+
+
+def test_scenario_delta_values_are_vs_base() -> None:
+    frame = pd.DataFrame(
+        [
+            {"scenario": "UPSIDE", "ecl": 90.0},
+            {"scenario": "BASE", "ecl": 100.0},
+            {"scenario": "DOWNSIDE", "ecl": 115.0},
+        ]
+    )
+    fig = scenario_delta_bar(frame, title="Scenario")
+    y_values = sorted(float(value) for trace in fig.data for value in trace.y)
+
+    assert y_values == [-10.0, 0.0, 15.0]

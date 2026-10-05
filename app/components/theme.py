@@ -29,7 +29,7 @@ RATING_COLOURS = {
     "R5": "#B42318",
 }
 STATUS_COLOURS = {"GREEN": POSITIVE, "AMBER": WARNING, "RED": ADVERSE}
-STATUS_ICONS = {"GREEN": "OK", "AMBER": "WATCH", "RED": "ACTION"}
+STATUS_ICONS = {"GREEN": "●", "AMBER": "▲", "RED": "■"}
 
 
 def stage_colour(stage: int | str) -> str:
@@ -123,10 +123,21 @@ def apply_streamlit_theme() -> None:
             background: {SURFACE};
             border: 1px solid {GRID};
             border-radius: 8px;
-            padding: 0.85rem 1rem;
+            padding: 0.75rem 0.8rem;
+            overflow: visible;
         }}
         [data-testid="stMetricLabel"] {{
             color: {SECONDARY_TEXT};
+            white-space: normal;
+            line-height: 1.15;
+        }}
+        [data-testid="stMetricValue"] {{
+            color: {TEXT};
+            font-size: clamp(1.05rem, 2.2vw, 1.65rem);
+            line-height: 1.15;
+            white-space: nowrap;
+            overflow: visible;
+            text-overflow: clip;
         }}
         [data-testid="stSidebar"] {{
             background: #FFFFFF;

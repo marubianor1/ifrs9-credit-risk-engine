@@ -5,6 +5,28 @@ from __future__ import annotations
 from datetime import date, datetime
 
 APP_VERSION = "2.0.0-beta"
+SPLIT_ORDER = ["TRAIN", "VALIDATION", "OOT"]
+
+DISPLAY_LABELS = {
+    "stage": "IFRS 9 Stage",
+    "stage_label": "IFRS 9 Stage",
+    "observed_bad_rate": "Observed default rate",
+    "observed_default_rate": "Observed default rate",
+    "predicted_bad_rate": "Predicted PD",
+    "predicted_pd": "Predicted PD",
+    "oe_ratio": "O/E",
+    "difference_bps": "Difference",
+    "scenario": "Scenario",
+    "weighted_ecl": "Weighted ECL",
+    "total_ead": "EAD",
+    "coverage_ratio": "Coverage ratio",
+    "roc_auc": "AUC",
+    "gini": "Gini",
+    "ks": "KS",
+    "psi": "PSI",
+    "split": "Split",
+    "rating": "Rating",
+}
 
 
 def usd(value: float, *, decimals: int = 1) -> str:
@@ -15,6 +37,12 @@ def usd(value: float, *, decimals: int = 1) -> str:
     if abs_value >= 1_000_000:
         return f"US${float(value) / 1_000_000:,.{decimals}f}m"
     return f"US${float(value):,.0f}"
+
+
+def signed_usd(value: float, *, decimals: int = 1) -> str:
+    """Format signed USD deltas without hiding direction."""
+    sign = "+" if float(value) > 0 else ""
+    return f"{sign}{usd(value, decimals=decimals)}"
 
 
 def percentage(value: float, *, decimals: int = 2) -> str:
@@ -35,6 +63,17 @@ def count(value: float | int) -> str:
 def ratio(value: float, *, decimals: int = 2) -> str:
     """Format a unitless ratio such as O/E."""
     return f"{float(value):,.{decimals}f}"
+
+
+def display_label(name: str) -> str:
+    """Map backend field names to professional UI labels."""
+    return DISPLAY_LABELS.get(name, str(name).replace("_", " ").title())
+
+
+def ordered_splits(values: list[str]) -> list[str]:
+    """Return split values in TRAIN, VALIDATION, OOT order."""
+    known = [split for split in SPLIT_ORDER if split in values]
+    return known + [value for value in values if value not in known]
 
 
 def au_date(value: str | date | datetime) -> str:

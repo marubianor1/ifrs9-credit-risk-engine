@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import streamlit as st
-from app.components.charts import rating_bar, scenario_bar, stage_bar
-from app.components.formatting import au_date, percentage, usd
+from app.components.charts import rating_bar, scenario_delta_bar, stage_bar, stage_mix_bar
+from app.components.formatting import au_date, percentage, signed_usd, usd
 from app.components.layout import friendly_error, page_title
 from app.components.metrics import kpi_row
 from app.components.tables import format_table
@@ -45,19 +45,14 @@ def main() -> None:
             ("Weighted ECL", usd(kpis["weighted_ecl"]), "Probability-weighted ECL."),
             ("Coverage ratio", percentage(kpis["coverage_ratio"]), "Weighted ECL / EAD."),
             ("Stage 2 + 3 share", percentage(stage_23_share), "EAD in higher-risk stages."),
-            ("Downside impact", usd(downside_impact), "Downside ECL less Base ECL."),
+            ("Downside impact", signed_usd(downside_impact), "Downside ECL less Base ECL."),
         ]
     )
 
-    stage_left, stage_mid, stage_right = st.columns(3)
+    stage_left, stage_mid = st.columns([1.2, 1])
     with stage_left:
         st.plotly_chart(
-            stage_bar(
-                stage,
-                value="total_ead",
-                title="EAD by IFRS 9 stage",
-                yaxis_title="Exposure",
-            ),
+            stage_mix_bar(stage, title="Stage 1, Stage 2 and Stage 3 exposure mix"),
             use_container_width=True,
         )
     with stage_mid:
@@ -70,6 +65,7 @@ def main() -> None:
             ),
             use_container_width=True,
         )
+    stage_right, scenario_right = st.columns([1, 1])
     with stage_right:
         st.plotly_chart(
             stage_bar(
@@ -78,6 +74,11 @@ def main() -> None:
                 title="Coverage ratio by stage",
                 yaxis_title="Coverage ratio",
             ),
+            use_container_width=True,
+        )
+    with scenario_right:
+        st.plotly_chart(
+            scenario_delta_bar(scenario, title="Scenario sensitivity: ECL delta versus Base"),
             use_container_width=True,
         )
 
@@ -93,10 +94,7 @@ def main() -> None:
             use_container_width=True,
         )
     with right:
-        st.plotly_chart(
-            scenario_bar(scenario, title="Base, Upside and Downside ECL comparison"),
-            use_container_width=True,
-        )
+        st.dataframe(format_table(rating), use_container_width=True, hide_index=True)
 
     with st.expander("Detailed stage table", expanded=False):
         st.dataframe(format_table(stage), use_container_width=True, hide_index=True)
