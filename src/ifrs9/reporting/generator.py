@@ -41,6 +41,32 @@ class ReportGenerationResult(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+GROQ_REPORT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "title": {"type": "string"},
+        "executive_summary": {"type": ["string", "null"]},
+        "portfolio_position": {"type": ["string", "null"]},
+        "key_risk_movements": {"type": ["string", "null"]},
+        "model_performance": {"type": ["string", "null"]},
+        "scenario_analysis": {"type": ["string", "null"]},
+        "limitations": {"type": ["string", "null"]},
+        "management_actions": {"type": ["string", "null"]},
+    },
+    "required": [
+        "title",
+        "executive_summary",
+        "portfolio_position",
+        "key_risk_movements",
+        "model_performance",
+        "scenario_analysis",
+        "limitations",
+        "management_actions",
+    ],
+    "additionalProperties": False,
+}
+
+
 def generate_report(
     *,
     context: ReportContext,
@@ -146,7 +172,6 @@ def _generate_with_groq(
 
     client = Groq(api_key=api_key)
     prompt = _prompt(context)
-    schema = groq_strict_json_schema(GeneratedReport)
     kwargs: dict[str, Any] = {
         "model": config.model,
         "messages": [
@@ -160,14 +185,7 @@ def _generate_with_groq(
             {"role": "user", "content": prompt},
         ],
         "max_completion_tokens": config.max_output_tokens,
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": {
-                "name": "ifrs9_report",
-                "schema": schema,
-                "strict": True,
-            },
-        },
+        "response_format": groq_response_format(),
     }
     if config.temperature is not None:
         kwargs["temperature"] = config.temperature
@@ -184,31 +202,16 @@ def _generate_with_groq(
         return GeneratedReport.model_validate(json.loads(payload))
 
 
-def groq_strict_json_schema(model: type[BaseModel]) -> dict[str, Any]:
-    """Return a Groq strict Structured Outputs compatible JSON Schema."""
-    schema = model.model_json_schema()
-    _close_object_schemas(schema)
-    return schema
-
-
-def _close_object_schemas(schema: Any) -> None:
-    if isinstance(schema, dict):
-        properties = schema.get("properties")
-        schema_type = schema.get("type")
-        if schema_type == "object" or isinstance(properties, dict):
-            schema["additionalProperties"] = False
-            schema["required"] = list(properties) if isinstance(properties, dict) else []
-        for key in ("properties", "$defs"):
-            nested = schema.get(key)
-            if isinstance(nested, dict):
-                for item in nested.values():
-                    _close_object_schemas(item)
-        for key in ("items", "anyOf", "allOf", "oneOf"):
-            nested = schema.get(key)
-            _close_object_schemas(nested)
-    elif isinstance(schema, list):
-        for item in schema:
-            _close_object_schemas(item)
+def groq_response_format() -> dict[str, Any]:
+    """Return the exact strict response_format payload sent to Groq."""
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "ifrs9_report",
+            "strict": True,
+            "schema": GROQ_REPORT_SCHEMA,
+        },
+    }
 
 
 def _fallback_result(context: ReportContext, reason: str) -> ReportGenerationResult:

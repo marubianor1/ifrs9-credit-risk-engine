@@ -16,7 +16,7 @@ from ifrs9.reporting import (
     render_report_markdown,
     validate_report_numbers,
 )
-from ifrs9.reporting.generator import _generate_with_groq, groq_strict_json_schema
+from ifrs9.reporting.generator import _generate_with_groq, groq_response_format
 
 
 def test_report_context_generation_has_no_loan_level_payload() -> None:
@@ -140,10 +140,49 @@ def test_export_generation() -> None:
     assert result.model_dump()["report"]["title"]
 
 
-def test_groq_schema_is_strict_closed_recursively() -> None:
-    schema = groq_strict_json_schema(GeneratedReport)
+def test_groq_response_format_is_explicit_minimal_strict_schema() -> None:
+    response_format = groq_response_format()
+    schema = response_format["json_schema"]["schema"]
+    expected_fields = [
+        "title",
+        "executive_summary",
+        "portfolio_position",
+        "key_risk_movements",
+        "model_performance",
+        "scenario_analysis",
+        "limitations",
+        "management_actions",
+    ]
 
-    _assert_strict_objects(schema)
+    assert response_format == {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "ifrs9_report",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "executive_summary": {"type": ["string", "null"]},
+                    "portfolio_position": {"type": ["string", "null"]},
+                    "key_risk_movements": {"type": ["string", "null"]},
+                    "model_performance": {"type": ["string", "null"]},
+                    "scenario_analysis": {"type": ["string", "null"]},
+                    "limitations": {"type": ["string", "null"]},
+                    "management_actions": {"type": ["string", "null"]},
+                },
+                "required": expected_fields,
+                "additionalProperties": False,
+            },
+        },
+    }
+    assert schema["additionalProperties"] is False
+    assert schema["required"] == expected_fields
+    assert set(schema["properties"]) == set(expected_fields)
+    for field in expected_fields[1:]:
+        assert schema["properties"][field]["type"] == ["string", "null"]
+    assert schema["properties"]["title"]["type"] == "string"
+    _assert_no_nested_schema_features(response_format)
 
 
 def test_groq_request_uses_strict_compatible_schema(monkeypatch) -> None:
@@ -188,26 +227,17 @@ def test_groq_request_uses_strict_compatible_schema(monkeypatch) -> None:
 
     response_format = captured["response_format"]
     assert report.title == "Executive IFRS 9 Summary"
-    assert response_format["type"] == "json_schema"
-    assert response_format["json_schema"]["strict"] is True
-    assert response_format["json_schema"]["name"] == "ifrs9_report"
-    _assert_strict_objects(response_format["json_schema"]["schema"])
+    assert response_format == groq_response_format()
+    _assert_no_nested_schema_features(response_format)
     json.dumps(response_format)
 
 
-def _assert_strict_objects(schema: Any) -> None:
-    if isinstance(schema, dict):
-        properties = schema.get("properties")
-        if schema.get("type") == "object" or isinstance(properties, dict):
-            assert schema.get("additionalProperties") is False
-            assert set(schema.get("required", [])) == set(properties or {})
-        for key in ("properties", "$defs"):
-            nested = schema.get(key)
-            if isinstance(nested, dict):
-                for value in nested.values():
-                    _assert_strict_objects(value)
-        for key in ("items", "anyOf", "allOf", "oneOf"):
-            _assert_strict_objects(schema.get(key))
-    elif isinstance(schema, list):
-        for item in schema:
-            _assert_strict_objects(item)
+def _assert_no_nested_schema_features(payload: Any) -> None:
+    forbidden = {"$defs", "$ref", "anyOf", "allOf", "oneOf"}
+    if isinstance(payload, dict):
+        assert forbidden.isdisjoint(payload)
+        for value in payload.values():
+            _assert_no_nested_schema_features(value)
+    elif isinstance(payload, list):
+        for item in payload:
+            _assert_no_nested_schema_features(item)
