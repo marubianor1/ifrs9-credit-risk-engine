@@ -70,7 +70,7 @@ def main() -> None:
                 title="Weighted ECL by IFRS 9 stage",
                 yaxis_title="Weighted ECL",
             ),
-            use_container_width=True,
+            width="stretch",
         )
         st.plotly_chart(
             stage_bar(
@@ -79,12 +79,12 @@ def main() -> None:
                 title="Coverage ratio by IFRS 9 stage",
                 yaxis_title="Coverage ratio",
             ),
-            use_container_width=True,
+            width="stretch",
         )
     with right:
         st.plotly_chart(
             scenario_delta_bar(scenario, title="Scenario sensitivity: ECL delta versus Base"),
-            use_container_width=True,
+            width="stretch",
         )
         st.plotly_chart(
             rating_bar(
@@ -93,17 +93,17 @@ def main() -> None:
                 title="Rating contribution to weighted ECL",
                 yaxis_title="Weighted ECL",
             ),
-            use_container_width=True,
+            width="stretch",
         )
 
     with st.expander("Stage 1 12M vs Stage 2 lifetime reconciliation", expanded=False):
-        st.dataframe(format_table(stage), use_container_width=True, hide_index=True)
+        st.dataframe(format_table(stage), width="stretch", hide_index=True)
     with st.expander("Structural LGD versus downturn sensitivity", expanded=True):
-        st.dataframe(format_table(artifacts["downturn"]), use_container_width=True, hide_index=True)
+        st.dataframe(format_table(artifacts["downturn"]), width="stretch", hide_index=True)
     with st.expander("Absolute scenario ECL values", expanded=False):
-        st.dataframe(format_table(scenario), use_container_width=True, hide_index=True)
+        st.dataframe(format_table(scenario), width="stretch", hide_index=True)
     with st.expander("Alignment and data-quality notes", expanded=False):
-        st.dataframe(format_table(artifacts["warnings"]), use_container_width=True, hide_index=True)
+        st.dataframe(format_table(artifacts["warnings"]), width="stretch", hide_index=True)
 
     if is_cloud_demo():
         st.info(full_mode_message())

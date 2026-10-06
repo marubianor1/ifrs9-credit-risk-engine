@@ -74,7 +74,7 @@ def main() -> None:
     with left:
         st.plotly_chart(
             stage_mix_bar(stage.rename(columns={"ead": "total_ead"}), title="Stage exposure mix"),
-            use_container_width=True,
+            width="stretch",
         )
     with right:
         st.plotly_chart(
@@ -84,7 +84,7 @@ def main() -> None:
                 title="Stage EAD",
                 yaxis_title="EAD",
             ),
-            use_container_width=True,
+            width="stretch",
         )
 
     tab_triggers, tab_migrations, tab_reference, tab_sim = st.tabs(
@@ -100,8 +100,8 @@ def main() -> None:
             labels={"trigger": "Trigger", "ead": "EAD"},
             color_discrete_sequence=["#286090"],
         )
-        st.plotly_chart(finish_chart(trigger_fig, yaxis_title="EAD"), use_container_width=True)
-        st.dataframe(format_table(trigger), use_container_width=True, hide_index=True)
+        st.plotly_chart(finish_chart(trigger_fig, yaxis_title="EAD"), width="stretch")
+        st.dataframe(format_table(trigger), width="stretch", hide_index=True)
         st.subheader("Trigger overlap")
         overlap = artifacts["trigger_exclusivity"].copy()
         overlap_fig = px.bar(
@@ -112,8 +112,8 @@ def main() -> None:
             labels={"trigger_set": "Trigger overlap", "ead": "EAD"},
             color_discrete_sequence=["#667085"],
         )
-        st.plotly_chart(finish_chart(overlap_fig, yaxis_title="EAD"), use_container_width=True)
-        st.dataframe(format_table(overlap), use_container_width=True, hide_index=True)
+        st.plotly_chart(finish_chart(overlap_fig, yaxis_title="EAD"), width="stretch")
+        st.dataframe(format_table(overlap), width="stretch", hide_index=True)
 
     with tab_migrations:
         st.subheader("Stage migration matrix")
@@ -136,20 +136,20 @@ def main() -> None:
                 title="Stage migration by EAD",
                 labels={"x": "To stage", "y": "From stage", "color": "EAD"},
             )
-            st.plotly_chart(finish_chart(heatmap), use_container_width=True)
-        st.dataframe(format_table(migrations), use_container_width=True, hide_index=True)
+            st.plotly_chart(finish_chart(heatmap), width="stretch")
+        st.dataframe(format_table(migrations), width="stretch", hide_index=True)
         st.subheader("Stage 3 active-state audit")
-        st.dataframe(format_table(stage3), use_container_width=True, hide_index=True)
+        st.dataframe(format_table(stage3), width="stretch", hide_index=True)
 
     with tab_reference:
         st.info(
             "Behavioural reference PD uses the earliest valid behavioural score/rating available "
             "after origination as a proxy for initial-recognition risk."
         )
-        st.dataframe(format_table(reference_lag), use_container_width=True, hide_index=True)
+        st.dataframe(format_table(reference_lag), width="stretch", hide_index=True)
         st.dataframe(
             format_table(artifacts["reference_pd"]),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -181,12 +181,12 @@ def main() -> None:
                 else:
                     st.dataframe(
                         format_table(result["stage_distribution"]),
-                        use_container_width=True,
+                        width="stretch",
                         hide_index=True,
                     )
                     st.dataframe(
                         format_table(result["sensitivity"]),
-                        use_container_width=True,
+                        width="stretch",
                         hide_index=True,
                     )
 

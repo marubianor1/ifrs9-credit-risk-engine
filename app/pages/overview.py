@@ -55,7 +55,7 @@ def main() -> None:
     with stage_left:
         st.plotly_chart(
             stage_mix_bar(stage, title="Stage 1, Stage 2 and Stage 3 exposure mix"),
-            use_container_width=True,
+            width="stretch",
         )
     with stage_mid:
         st.plotly_chart(
@@ -65,7 +65,7 @@ def main() -> None:
                 title="Weighted ECL by IFRS 9 stage",
                 yaxis_title="Weighted ECL",
             ),
-            use_container_width=True,
+            width="stretch",
         )
     stage_right, scenario_right = st.columns([1, 1])
     with stage_right:
@@ -76,12 +76,12 @@ def main() -> None:
                 title="Coverage ratio by stage",
                 yaxis_title="Coverage ratio",
             ),
-            use_container_width=True,
+            width="stretch",
         )
     with scenario_right:
         st.plotly_chart(
             scenario_delta_bar(scenario, title="Scenario sensitivity: ECL delta versus Base"),
-            use_container_width=True,
+            width="stretch",
         )
 
     left, right = st.columns([1, 1])
@@ -93,13 +93,13 @@ def main() -> None:
                 title="Rating exposure distribution",
                 yaxis_title="Exposure",
             ),
-            use_container_width=True,
+            width="stretch",
         )
     with right:
-        st.dataframe(format_table(rating), use_container_width=True, hide_index=True)
+        st.dataframe(format_table(rating), width="stretch", hide_index=True)
 
     with st.expander("Detailed stage table", expanded=False):
-        st.dataframe(format_table(stage), use_container_width=True, hide_index=True)
+        st.dataframe(format_table(stage), width="stretch", hide_index=True)
     with st.expander("Methodological limitations and data-quality notes", expanded=False):
         st.markdown(
             """
@@ -113,7 +113,7 @@ def main() -> None:
             """
         )
         if not warnings.empty:
-            st.dataframe(format_table(warnings), use_container_width=True, hide_index=True)
+            st.dataframe(format_table(warnings), width="stretch", hide_index=True)
 
 
 main()

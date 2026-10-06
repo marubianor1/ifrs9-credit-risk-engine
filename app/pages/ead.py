@@ -68,7 +68,7 @@ def main() -> None:
             title="EAD O/E by method and split",
             labels={"split": "Split", "oe_ratio": "O/E", "method": "Method"},
         )
-        st.plotly_chart(finish_chart(oe_fig, yaxis_title="O/E"), use_container_width=True)
+        st.plotly_chart(finish_chart(oe_fig, yaxis_title="O/E"), width="stretch")
         errors = split.melt(
             id_vars=["method", "split"],
             value_vars=["mae", "rmse"],
@@ -89,9 +89,9 @@ def main() -> None:
         )
         st.plotly_chart(
             finish_chart(error_fig, yaxis_title="Prediction error"),
-            use_container_width=True,
+            width="stretch",
         )
-        st.dataframe(format_table(split), use_container_width=True, hide_index=True)
+        st.dataframe(format_table(split), width="stretch", hide_index=True)
 
     with tab_segments:
         mtd = st.selectbox(
@@ -112,8 +112,8 @@ def main() -> None:
             title=f"O/E by segment for {mtd.replace('_', ' ').title()}",
             labels={"segment_value": "Segment", "oe_ratio": "O/E", "split": "Split"},
         )
-        st.plotly_chart(finish_chart(segment_fig, yaxis_title="O/E"), use_container_width=True)
-        st.dataframe(format_table(filtered), use_container_width=True, hide_index=True)
+        st.plotly_chart(finish_chart(segment_fig, yaxis_title="O/E"), width="stretch")
+        st.dataframe(format_table(filtered), width="stretch", hide_index=True)
 
     with tab_profiles:
         sample = profiles.head(2000)
@@ -136,15 +136,15 @@ def main() -> None:
             )
             st.plotly_chart(
                 finish_chart(fig, yaxis_title="EAD", xaxis_title="Month"),
-                use_container_width=True,
+                width="stretch",
             )
         st.dataframe(
             format_table(artifacts["profile_validation"]),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
         with st.expander("EAD ratio distribution", expanded=False):
-            st.dataframe(format_table(ratio_dist), use_container_width=True, hide_index=True)
+            st.dataframe(format_table(ratio_dist), width="stretch", hide_index=True)
 
     with st.expander("Future EAD run controls", expanded=False):
         if is_cloud_demo():

@@ -130,7 +130,7 @@ def main() -> None:
         st.subheader("12-month observed default rate versus predicted PD")
         st.dataframe(
             format_table(bad_rate_table(metrics)),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
     with chart_right:
@@ -162,7 +162,7 @@ def main() -> None:
         )
         fig.update_traces(hovertemplate="%{x}<br>%{y:.2%}<extra></extra>")
         fig.update_yaxes(tickformat=".1%")
-        st.plotly_chart(finish_chart(fig, yaxis_title="Rate"), use_container_width=True)
+        st.plotly_chart(finish_chart(fig, yaxis_title="Rate"), width="stretch")
 
     tab_perf, tab_cal, tab_stability, tab_features = st.tabs(
         ["Performance", "Calibration", "Stability", "Feature Diagnostics"]
@@ -178,9 +178,9 @@ def main() -> None:
                 title="AUC by development split",
                 yaxis_title="AUC",
             ),
-            use_container_width=True,
+            width="stretch",
         )
-        st.dataframe(format_table(metrics), use_container_width=True, hide_index=True)
+        st.dataframe(format_table(metrics), width="stretch", hide_index=True)
     with tab_cal:
         st.subheader("Calibration curve")
         render_guidance("scoring_calibration")
@@ -190,9 +190,9 @@ def main() -> None:
                     calibration,
                     title="Calibration backtest: observed default rate versus predicted PD",
                 ),
-                use_container_width=True,
+                width="stretch",
             )
-        st.dataframe(format_table(calibration), use_container_width=True, hide_index=True)
+        st.dataframe(format_table(calibration), width="stretch", hide_index=True)
     with tab_stability:
         st.plotly_chart(
             metric_bar(
@@ -203,24 +203,24 @@ def main() -> None:
                 title="Population stability index by feature",
                 yaxis_title="PSI",
             ),
-            use_container_width=True,
+            width="stretch",
         )
-        st.dataframe(format_table(psi), use_container_width=True, hide_index=True)
+        st.dataframe(format_table(psi), width="stretch", hide_index=True)
         with st.expander("Yearly performance diagnostics", expanded=False):
-            st.dataframe(format_table(yearly), use_container_width=True, hide_index=True)
+            st.dataframe(format_table(yearly), width="stretch", hide_index=True)
     with tab_features:
         left, right = st.columns(2)
         with left:
             st.subheader("Information value ranking")
-            st.dataframe(format_table(iv), use_container_width=True, hide_index=True)
+            st.dataframe(format_table(iv), width="stretch", hide_index=True)
             with st.expander("Feature list", expanded=False):
-                st.dataframe(format_table(features), use_container_width=True, hide_index=True)
+                st.dataframe(format_table(features), width="stretch", hide_index=True)
         with right:
             st.subheader("Coefficients")
-            st.dataframe(format_table(coefficients), use_container_width=True, hide_index=True)
+            st.dataframe(format_table(coefficients), width="stretch", hide_index=True)
             with st.expander("Score bands and deciles", expanded=False):
-                st.dataframe(format_table(bands), use_container_width=True, hide_index=True)
-                st.dataframe(format_table(deciles), use_container_width=True, hide_index=True)
+                st.dataframe(format_table(bands), width="stretch", hide_index=True)
+                st.dataframe(format_table(deciles), width="stretch", hide_index=True)
 
 
 main()

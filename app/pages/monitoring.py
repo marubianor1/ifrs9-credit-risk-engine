@@ -118,7 +118,7 @@ def main() -> None:
     st.subheader("Monitoring status by area")
     st.dataframe(
         add_status_label(format_status_values(status), column="Status"),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -133,42 +133,42 @@ def main() -> None:
                 title="Scorecard discrimination by split",
                 yaxis_title="AUC",
             ),
-            use_container_width=True,
+            width="stretch",
         )
-        st.dataframe(format_table(scorecard), use_container_width=True, hide_index=True)
+        st.dataframe(format_table(scorecard), width="stretch", hide_index=True)
         with st.expander("PSI and yearly performance diagnostics", expanded=True):
-            st.dataframe(format_table(psi), use_container_width=True, hide_index=True)
+            st.dataframe(format_table(psi), width="stretch", hide_index=True)
             st.dataframe(
                 format_table(artifacts["scorecard_yearly"]),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
     with tab_pd:
         st.subheader("PD calibration and O/E")
         st.dataframe(
             format_table(artifacts["pd_calibration"]),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
-        st.dataframe(format_table(pd_backtest), use_container_width=True, hide_index=True)
+        st.dataframe(format_table(pd_backtest), width="stretch", hide_index=True)
         with st.expander("Rating backtesting diagnostics", expanded=False):
             st.dataframe(
                 format_table(artifacts["pd_rating"]),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
     with tab_lgd:
         st.subheader("LGD realized versus predicted")
-        st.dataframe(format_table(lgd), use_container_width=True, hide_index=True)
+        st.dataframe(format_table(lgd), width="stretch", hide_index=True)
         with st.expander("Cure and severity decomposition", expanded=False):
             st.dataframe(
                 format_table(artifacts["lgd_components"]),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
     with tab_ead:
         st.subheader("EAD O/E, MAE and RMSE")
-        st.dataframe(format_table(ead), use_container_width=True, hide_index=True)
+        st.dataframe(format_table(ead), width="stretch", hide_index=True)
 
 
 def format_status_values(status: pd.DataFrame) -> pd.DataFrame:

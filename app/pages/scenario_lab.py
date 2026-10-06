@@ -76,9 +76,9 @@ def _render_result(result: dict) -> None:
         st.subheader("Driver waterfall")
         st.plotly_chart(
             scenario_waterfall(waterfall, title="ECL delta waterfall"),
-            use_container_width=True,
+            width="stretch",
         )
-        st.dataframe(format_table(waterfall), use_container_width=True, hide_index=True)
+        st.dataframe(format_table(waterfall), width="stretch", hide_index=True)
     with right:
         st.subheader("Stage migration")
         chart = stage.melt(
@@ -99,8 +99,8 @@ def _render_result(result: dict) -> None:
             title="Baseline versus stressed EAD by stage",
             labels={"stage": "IFRS 9 Stage"},
         )
-        st.plotly_chart(finish_chart(stage_fig, yaxis_title="EAD"), use_container_width=True)
-        st.dataframe(format_table(stage), use_container_width=True, hide_index=True)
+        st.plotly_chart(finish_chart(stage_fig, yaxis_title="EAD"), width="stretch")
+        st.dataframe(format_table(stage), width="stretch", hide_index=True)
 
     st.subheader("ECL Delta by Rating")
     rating_fig = px.bar(
@@ -112,8 +112,8 @@ def _render_result(result: dict) -> None:
         title="ECL delta by rating",
         labels={"rating": "Rating", "delta_ecl": "Delta ECL"},
     )
-    st.plotly_chart(finish_chart(rating_fig, yaxis_title="Delta ECL"), use_container_width=True)
-    st.dataframe(format_table(rating), use_container_width=True, hide_index=True)
+    st.plotly_chart(finish_chart(rating_fig, yaxis_title="Delta ECL"), width="stretch")
+    st.dataframe(format_table(rating), width="stretch", hide_index=True)
 
 
 def main() -> None:
@@ -161,7 +161,7 @@ def main() -> None:
         st.subheader("Preset scenario comparison")
         st.dataframe(
             format_table(pd.DataFrame(scenario_summaries)),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
         selected_cloud = st.selectbox("Scenario result", list(preset_map))

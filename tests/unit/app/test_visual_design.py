@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
 from app.components.charts import (
     calibration_scatter,
@@ -187,3 +189,11 @@ def test_scenario_waterfall_reconciles_to_total_delta() -> None:
 
     assert fig.data[0].measure[-1] == "total"
     assert float(fig.data[0].y[-1]) == 13.0
+
+
+def test_app_code_uses_current_streamlit_and_pandas_width_apis() -> None:
+    app_root = Path(__file__).resolve().parents[3] / "app"
+    source = "\n".join(path.read_text() for path in app_root.rglob("*.py"))
+
+    assert "use_container_width" not in source
+    assert ".applymap(" not in source

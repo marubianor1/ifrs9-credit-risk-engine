@@ -124,7 +124,7 @@ def main() -> None:
                 yaxis_title="LGD",
                 rate_axis=True,
             ),
-            use_container_width=True,
+            width="stretch",
         )
         oe_fig = px.bar(
             backtesting,
@@ -137,8 +137,8 @@ def main() -> None:
             color_discrete_map={"TRAIN": "#286090", "VALIDATION": "#667085", "OOT": "#98A2B3"},
         )
         oe_fig.update_traces(showlegend=False, hovertemplate="%{x}<br>%{y:.2f}<extra></extra>")
-        st.plotly_chart(finish_chart(oe_fig, yaxis_title="O/E"), use_container_width=True)
-        st.dataframe(format_table(backtesting), use_container_width=True, hide_index=True)
+        st.plotly_chart(finish_chart(oe_fig, yaxis_title="O/E"), width="stretch")
+        st.dataframe(format_table(backtesting), width="stretch", hide_index=True)
 
     with tab_components:
         st.subheader("Cure / non-cure branch decomposition")
@@ -170,8 +170,8 @@ def main() -> None:
             labels={"split": "Split", "Value": "Rate"},
         )
         fig.update_yaxes(tickformat=".1%")
-        st.plotly_chart(finish_chart(fig, yaxis_title="Rate"), use_container_width=True)
-        st.dataframe(format_table(components), use_container_width=True, hide_index=True)
+        st.plotly_chart(finish_chart(fig, yaxis_title="Rate"), width="stretch")
+        st.dataframe(format_table(components), width="stretch", hide_index=True)
 
     with tab_segments:
         left, right = st.columns(2)
@@ -190,8 +190,8 @@ def main() -> None:
                 title="LGD O/E by rating",
                 labels={"rating": "Rating", "oe_ratio": "O/E", "split": "Split"},
             )
-            st.plotly_chart(finish_chart(fig, yaxis_title="O/E"), use_container_width=True)
-            st.dataframe(format_table(by_rating), use_container_width=True, hide_index=True)
+            st.plotly_chart(finish_chart(fig, yaxis_title="O/E"), width="stretch")
+            st.dataframe(format_table(by_rating), width="stretch", hide_index=True)
         with right:
             st.subheader("LGD by default year")
             year_fig = px.line(
@@ -206,9 +206,9 @@ def main() -> None:
             )
             st.plotly_chart(
                 finish_chart(year_fig, yaxis_title="O/E", xaxis_title="Default year"),
-                use_container_width=True,
+                width="stretch",
             )
-            st.dataframe(format_table(by_year), use_container_width=True, hide_index=True)
+            st.dataframe(format_table(by_year), width="stretch", hide_index=True)
         st.subheader("Downturn sensitivity")
         downturn_chart = downturn.copy()
         downturn_chart["delta"] = downturn_chart["downturn_overlay_factor"] - 1.0
@@ -222,11 +222,11 @@ def main() -> None:
         fig.update_yaxes(tickformat=".1%")
         st.plotly_chart(
             finish_chart(fig, yaxis_title="Overlay above baseline"),
-            use_container_width=True,
+            width="stretch",
         )
         with st.expander("Recovery timing and resolution population", expanded=False):
-            st.dataframe(format_table(recovery), use_container_width=True, hide_index=True)
-            st.dataframe(format_table(resolution), use_container_width=True, hide_index=True)
+            st.dataframe(format_table(recovery), width="stretch", hide_index=True)
+            st.dataframe(format_table(resolution), width="stretch", hide_index=True)
 
     with tab_challengers:
         st.info(
@@ -235,7 +235,7 @@ def main() -> None:
         )
         st.dataframe(
             format_table(_challenger_table(artifacts["model_metrics"])),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
         fl_run = st.selectbox("Forward-looking LGD challenger", ["lgd_fl_v1", "lgd_fl_v2"])
@@ -247,22 +247,22 @@ def main() -> None:
             with st.expander("Forward-looking challenger diagnostics", expanded=False):
                 st.dataframe(
                     format_table(fl_artifacts["weighted"]),
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                 )
                 st.dataframe(
                     format_table(fl_artifacts["scenario_by_rating"]),
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                 )
                 st.dataframe(
                     format_table(fl_artifacts["diagnostics"]),
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                 )
                 st.dataframe(
                     format_table(fl_artifacts["sensitivity"]),
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                 )
 

@@ -64,9 +64,9 @@ def format_table(frame: pd.DataFrame) -> pd.io.formats.style.Styler:
     if len(numeric_cols):
         styler = styler.set_properties(subset=numeric_cols, **{"text-align": "right"})
     if "O/E" in display.columns:
-        styler = styler.applymap(_oe_cell_style, subset=["O/E"])
+        styler = styler.map(_oe_cell_style, subset=["O/E"])
     if "Calibration status" in display.columns:
-        styler = styler.applymap(_status_cell_style, subset=["Calibration status"])
+        styler = styler.map(_status_cell_style, subset=["Calibration status"])
     return styler.format(_formatters(display))
 
 

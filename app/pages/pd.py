@@ -112,8 +112,8 @@ def main() -> None:
             )
             fig.update_yaxes(tickformat=".1%")
             fig.update_traces(hovertemplate="%{x}<br>%{y:.2%}<extra></extra>")
-            st.plotly_chart(finish_chart(fig, yaxis_title="Rate"), use_container_width=True)
-        st.dataframe(format_table(metrics), use_container_width=True, hide_index=True)
+            st.plotly_chart(finish_chart(fig, yaxis_title="Rate"), width="stretch")
+        st.dataframe(format_table(metrics), width="stretch", hide_index=True)
 
         curve = artifacts["calibration_curve"].copy()
         if {"predicted_bad_rate", "observed_bad_rate"}.issubset(curve.columns):
@@ -152,7 +152,7 @@ def main() -> None:
                     yaxis_title="Observed default rate",
                     xaxis_title="Predicted PD",
                 ),
-                use_container_width=True,
+                width="stretch",
             )
 
     with tab_rating:
@@ -167,9 +167,9 @@ def main() -> None:
                     title="Calibrated PD by rating grade",
                     yaxis_title="Calibrated PD",
                 ),
-                use_container_width=True,
+                width="stretch",
             )
-            st.dataframe(format_table(ordered), use_container_width=True, hide_index=True)
+            st.dataframe(format_table(ordered), width="stretch", hide_index=True)
         with right:
             st.subheader("TTC PD")
             ttc = rating_ttc.sort_values("rating")
@@ -184,12 +184,12 @@ def main() -> None:
             )
             fig.update_yaxes(tickformat=".1%")
             fig.update_traces(showlegend=False, hovertemplate="%{x}<br>%{y:.2%}<extra></extra>")
-            st.plotly_chart(finish_chart(fig, yaxis_title="TTC PD"), use_container_width=True)
-            st.dataframe(format_table(ttc), use_container_width=True, hide_index=True)
+            st.plotly_chart(finish_chart(fig, yaxis_title="TTC PD"), width="stretch")
+            st.dataframe(format_table(ttc), width="stretch", hide_index=True)
             with st.expander("Rating boundaries", expanded=False):
                 st.dataframe(
                     format_table(artifacts["rating_boundaries"]),
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                 )
 
@@ -209,7 +209,7 @@ def main() -> None:
         cumulative.update_yaxes(tickformat=".1%")
         st.plotly_chart(
             finish_chart(cumulative, yaxis_title="Cumulative PD", xaxis_title="Month"),
-            use_container_width=True,
+            width="stretch",
         )
         marginal = filtered[filtered["month"].le(60)]
         marginal_fig = px.line(
@@ -224,7 +224,7 @@ def main() -> None:
         marginal_fig.update_yaxes(tickformat=".2%")
         st.plotly_chart(
             finish_chart(marginal_fig, yaxis_title="Marginal PD", xaxis_title="Month"),
-            use_container_width=True,
+            width="stretch",
         )
 
     with tab_forward:
@@ -253,13 +253,13 @@ def main() -> None:
         fig.update_yaxes(tickformat=".1%")
         st.plotly_chart(
             finish_chart(fig, yaxis_title="Rate", xaxis_title="Observation year"),
-            use_container_width=True,
+            width="stretch",
         )
-        st.dataframe(format_table(pit_ttc), use_container_width=True, hide_index=True)
+        st.dataframe(format_table(pit_ttc), width="stretch", hide_index=True)
 
     with tab_backtest:
         st.subheader("Backtesting by split")
-        st.dataframe(format_table(backtest), use_container_width=True, hide_index=True)
+        st.dataframe(format_table(backtest), width="stretch", hide_index=True)
         st.subheader("Yearly rating backtesting")
         yearly = artifacts["backtesting_year"]
         fig = px.line(
@@ -278,7 +278,7 @@ def main() -> None:
         )
         st.plotly_chart(
             finish_chart(fig, yaxis_title="O/E", xaxis_title="Observation year"),
-            use_container_width=True,
+            width="stretch",
         )
         st.subheader("Transition matrix")
         transition = artifacts["transition"].pivot_table(
@@ -295,10 +295,10 @@ def main() -> None:
             title="Rating transition probability matrix",
             labels={"x": "To state", "y": "From rating", "color": "Probability"},
         )
-        st.plotly_chart(finish_chart(heatmap), use_container_width=True)
+        st.plotly_chart(finish_chart(heatmap), width="stretch")
         st.dataframe(
             format_table(artifacts["transition_summary"]),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
