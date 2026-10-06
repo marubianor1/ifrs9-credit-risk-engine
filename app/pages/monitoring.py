@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import pandas as pd
-import plotly.express as px
 import streamlit as st
+from app.components.charts import metric_bar
+from app.components.formatting import SPLIT_ORDER, display_label
+from app.components.guidance import render_guidance
 from app.components.layout import friendly_error, page_title
+from app.components.metrics import kpi_row
+from app.components.tables import add_status_label, format_table
 from app.services.monitoring import (
     load_monitoring_artifacts,
     load_monitoring_thresholds,
@@ -24,19 +28,27 @@ def _status_table(rows: list[dict]) -> pd.DataFrame:
 
 
 def main() -> None:
-    page_title("Model Monitoring", "Project monitoring thresholds and diagnostic artifacts.")
+    page_title(
+        "Model Monitoring",
+        "Model-risk dashboard using transparent project thresholds for status assessment.",
+    )
+    render_guidance("monitoring")
     try:
         artifacts, thresholds = _load()
     except Exception as exc:
         friendly_error(exc)
         return
 
-    st.info("Statuses use project monitoring thresholds from `config/monitoring.yaml`.")
+    st.caption("Threshold source: `config/monitoring.yaml` | Reporting date: 1 Mar 2025")
     scorecard = artifacts["scorecard_metrics"]
     psi = artifacts["scorecard_psi"]
     pd_backtest = artifacts["pd_backtest"]
     lgd = artifacts["lgd_backtest"]
     ead = artifacts["ead_backtest"]
+    scorecard = _sort_split_frame(scorecard)
+    pd_backtest = _sort_split_frame(pd_backtest)
+    lgd = _sort_split_frame(lgd)
+    ead = _sort_split_frame(ead)
 
     rows = []
     if "roc_auc" in scorecard:
@@ -95,27 +107,83 @@ def main() -> None:
         )
 
     status = _status_table(rows)
-    st.subheader("Traffic-light Summary")
-    st.dataframe(status, use_container_width=True, hide_index=True)
+    status_counts = status["status"].value_counts().to_dict()
+    kpi_row(
+        [
+            ("GREEN", str(status_counts.get("GREEN", 0)), "Within project monitoring thresholds."),
+            ("AMBER", str(status_counts.get("AMBER", 0)), "Watch-list under project thresholds."),
+            ("RED", str(status_counts.get("RED", 0)), "Requires review under project thresholds."),
+        ]
+    )
+    st.subheader("Monitoring status by area")
+    st.dataframe(
+        add_status_label(format_status_values(status), column="Status"),
+        width="stretch",
+        hide_index=True,
+    )
 
     tab_scorecard, tab_pd, tab_lgd, tab_ead = st.tabs(["Scorecard", "PD", "LGD", "EAD"])
     with tab_scorecard:
-        scorecard_fig = px.bar(scorecard, x="split", y="roc_auc", color="split")
-        st.plotly_chart(scorecard_fig, use_container_width=True)
-        st.dataframe(scorecard, use_container_width=True, hide_index=True)
-        st.subheader("PSI")
-        st.dataframe(psi, use_container_width=True, hide_index=True)
-        st.subheader("Yearly Performance")
-        st.dataframe(artifacts["scorecard_yearly"], use_container_width=True, hide_index=True)
+        st.plotly_chart(
+            metric_bar(
+                scorecard,
+                x="split",
+                y="roc_auc",
+                color="split",
+                title="Scorecard discrimination by split",
+                yaxis_title="AUC",
+            ),
+            width="stretch",
+        )
+        st.dataframe(format_table(scorecard), width="stretch", hide_index=True)
+        with st.expander("PSI and yearly performance diagnostics", expanded=True):
+            st.dataframe(format_table(psi), width="stretch", hide_index=True)
+            st.dataframe(
+                format_table(artifacts["scorecard_yearly"]),
+                width="stretch",
+                hide_index=True,
+            )
     with tab_pd:
-        st.dataframe(artifacts["pd_calibration"], use_container_width=True, hide_index=True)
-        st.dataframe(pd_backtest, use_container_width=True, hide_index=True)
-        st.dataframe(artifacts["pd_rating"], use_container_width=True, hide_index=True)
+        st.subheader("PD calibration and O/E")
+        st.dataframe(
+            format_table(artifacts["pd_calibration"]),
+            width="stretch",
+            hide_index=True,
+        )
+        st.dataframe(format_table(pd_backtest), width="stretch", hide_index=True)
+        with st.expander("Rating backtesting diagnostics", expanded=False):
+            st.dataframe(
+                format_table(artifacts["pd_rating"]),
+                width="stretch",
+                hide_index=True,
+            )
     with tab_lgd:
-        st.dataframe(lgd, use_container_width=True, hide_index=True)
-        st.dataframe(artifacts["lgd_components"], use_container_width=True, hide_index=True)
+        st.subheader("LGD realized versus predicted")
+        st.dataframe(format_table(lgd), width="stretch", hide_index=True)
+        with st.expander("Cure and severity decomposition", expanded=False):
+            st.dataframe(
+                format_table(artifacts["lgd_components"]),
+                width="stretch",
+                hide_index=True,
+            )
     with tab_ead:
-        st.dataframe(ead, use_container_width=True, hide_index=True)
+        st.subheader("EAD O/E, MAE and RMSE")
+        st.dataframe(format_table(ead), width="stretch", hide_index=True)
+
+
+def format_status_values(status: pd.DataFrame) -> pd.DataFrame:
+    """Prepare status values for display without relying on colour alone."""
+    output = status.copy()
+    output["value"] = output["value"].map(lambda value: f"{float(value):,.2f}")
+    return output.rename(columns={column: display_label(column) for column in output.columns})
+
+
+def _sort_split_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    if "split" not in frame.columns:
+        return frame
+    output = frame.copy()
+    output["split"] = pd.Categorical(output["split"], categories=SPLIT_ORDER, ordered=True)
+    return output.sort_values("split")
 
 
 main()

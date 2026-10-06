@@ -36,6 +36,7 @@ def _fake_streamlit() -> types.ModuleType:
     module.metric = lambda *args, **kwargs: None
     module.caption = lambda *args, **kwargs: None
     module.write = lambda *args, **kwargs: None
+    module.markdown = lambda *args, **kwargs: None
     module.Page = lambda path, title: {"path": path, "title": title}
     module.navigation = lambda pages: _Navigation()
     return module

@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-import plotly.express as px
 import streamlit as st
-from app.components.layout import friendly_error, money, page_title, pct
+from app.components.charts import rating_bar, scenario_delta_bar, stage_bar
+from app.components.formatting import au_date, percentage, usd
+from app.components.guidance import render_guidance
+from app.components.layout import friendly_error, page_title
+from app.components.metrics import kpi_row
+from app.components.tables import format_table
 from app.services.ecl import ecl_kpis, load_ecl_artifacts, run_ecl_from_ui
 from app.services.runtime import full_mode_message, is_cloud_demo
 
@@ -15,7 +19,10 @@ def _load():
 
 
 def main() -> None:
-    page_title("ECL", "Expected credit loss engine outputs and sensitivities.")
+    page_title(
+        "ECL",
+        "Expected credit loss engine outputs, scenario comparison and LGD sensitivity.",
+    )
     try:
         artifacts = _load()
     except Exception as exc:
@@ -25,15 +32,23 @@ def main() -> None:
     rating = artifacts["rating"]
     scenario = artifacts["scenario"]
     kpis = ecl_kpis(stage, scenario)
+    stage_ecl = {
+        int(row["stage"]): float(row["weighted_ecl"])
+        for _, row in stage.iterrows()
+    }
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Total EAD", money(kpis["total_ead"]))
-    c2.metric("Weighted ECL", money(kpis["weighted_ecl"]))
-    c3.metric("Coverage ratio", pct(kpis["coverage_ratio"]))
-    s1, s2, s3 = st.columns(3)
-    for column, stage_id in zip([s1, s2, s3], [1, 2, 3], strict=True):
-        value = stage.loc[stage["stage"].eq(stage_id), "weighted_ecl"].iloc[0]
-        column.metric(f"Stage {stage_id} ECL", money(value))
+    st.caption("Selected run: `ecl_v1` | Reporting date: " + au_date("2025-03-01"))
+    render_guidance("ecl")
+    kpi_row(
+        [
+            ("Total EAD", usd(kpis["total_ead"]), "Exposure used for ECL."),
+            ("Weighted ECL", usd(kpis["weighted_ecl"]), "Probability-weighted ECL."),
+            ("Coverage ratio", percentage(kpis["coverage_ratio"]), "Weighted ECL / EAD."),
+            ("Stage 1 ECL", usd(stage_ecl[1]), "12-month ECL."),
+            ("Stage 2 ECL", usd(stage_ecl[2]), "Lifetime ECL for SICR loans."),
+            ("Stage 3 ECL", usd(stage_ecl[3]), "Credit-impaired approximation."),
+        ]
+    )
 
     with st.expander("Methodological limitations"):
         st.markdown(
@@ -48,32 +63,47 @@ def main() -> None:
 
     left, right = st.columns(2)
     with left:
-        st.subheader("EAD / ECL by Stage")
-        stage_chart = stage.melt(
-            id_vars=["stage"],
-            value_vars=["total_ead", "weighted_ecl"],
-            var_name="metric",
-            value_name="amount",
+        st.plotly_chart(
+            stage_bar(
+                stage,
+                value="weighted_ecl",
+                title="Weighted ECL by IFRS 9 stage",
+                yaxis_title="Weighted ECL",
+            ),
+            width="stretch",
         )
-        amount_fig = px.bar(stage_chart, x="stage", y="amount", color="metric")
-        st.plotly_chart(amount_fig, use_container_width=True)
-        st.subheader("Coverage by Stage")
-        coverage_fig = px.bar(stage, x="stage", y="coverage_ratio", color="stage")
-        st.plotly_chart(coverage_fig, use_container_width=True)
+        st.plotly_chart(
+            stage_bar(
+                stage,
+                value="coverage_ratio",
+                title="Coverage ratio by IFRS 9 stage",
+                yaxis_title="Coverage ratio",
+            ),
+            width="stretch",
+        )
     with right:
-        st.subheader("Base / Upside / Downside")
-        scenario_fig = px.bar(scenario, x="scenario", y="ecl", color="scenario")
-        st.plotly_chart(scenario_fig, use_container_width=True)
-        st.subheader("ECL by Rating")
-        rating_fig = px.bar(rating, x="rating", y="weighted_ecl", color="rating")
-        st.plotly_chart(rating_fig, use_container_width=True)
+        st.plotly_chart(
+            scenario_delta_bar(scenario, title="Scenario sensitivity: ECL delta versus Base"),
+            width="stretch",
+        )
+        st.plotly_chart(
+            rating_bar(
+                rating,
+                value="weighted_ecl",
+                title="Rating contribution to weighted ECL",
+                yaxis_title="Weighted ECL",
+            ),
+            width="stretch",
+        )
 
-    st.subheader("Stage 1 12M vs Stage 2 Lifetime")
-    st.dataframe(stage, use_container_width=True, hide_index=True)
-    st.subheader("Structural LGD vs Downturn Sensitivity")
-    st.dataframe(artifacts["downturn"], use_container_width=True, hide_index=True)
-    st.subheader("Alignment Notes")
-    st.dataframe(artifacts["warnings"], use_container_width=True, hide_index=True)
+    with st.expander("Stage 1 12M vs Stage 2 lifetime reconciliation", expanded=False):
+        st.dataframe(format_table(stage), width="stretch", hide_index=True)
+    with st.expander("Structural LGD versus downturn sensitivity", expanded=True):
+        st.dataframe(format_table(artifacts["downturn"]), width="stretch", hide_index=True)
+    with st.expander("Absolute scenario ECL values", expanded=False):
+        st.dataframe(format_table(scenario), width="stretch", hide_index=True)
+    with st.expander("Alignment and data-quality notes", expanded=False):
+        st.dataframe(format_table(artifacts["warnings"]), width="stretch", hide_index=True)
 
     if is_cloud_demo():
         st.info(full_mode_message())
