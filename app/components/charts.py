@@ -6,7 +6,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-from app.components.formatting import display_label, percentage, signed_usd, usd
+from app.components.formatting import SPLIT_ORDER, display_label, percentage, signed_usd, usd
 from app.components.theme import (
     GRID,
     RATING_COLOURS,
@@ -22,11 +22,19 @@ __all__ = [
     "finish_chart",
     "metric_bar",
     "rating_bar",
+    "scenario_waterfall",
+    "split_grouped_bar",
     "scenario_bar",
     "scenario_delta_bar",
     "stage_bar",
     "stage_mix_bar",
 ]
+
+NEUTRAL_SPLIT_COLOURS = {
+    "TRAIN": "#286090",
+    "VALIDATION": "#667085",
+    "OOT": "#98A2B3",
+}
 
 
 def finish_chart(fig: go.Figure, *, yaxis_title: str = "", xaxis_title: str = "") -> go.Figure:
@@ -216,6 +224,65 @@ def metric_bar(
     )
     fig.update_traces(textposition="outside", hovertemplate="%{x}<br>%{y:,.4f}<extra></extra>")
     return finish_chart(fig, yaxis_title=yaxis_title, xaxis_title="")
+
+
+def split_grouped_bar(
+    frame: pd.DataFrame,
+    *,
+    y: str | list[str],
+    title: str,
+    yaxis_title: str,
+    rate_axis: bool = False,
+) -> go.Figure:
+    """Build a grouped split chart in TRAIN, VALIDATION, OOT order."""
+    data = frame.copy()
+    if "split" in data.columns:
+        data["split"] = pd.Categorical(data["split"], categories=SPLIT_ORDER, ordered=True)
+        data = data.sort_values("split")
+    labels = {"split": "Split"}
+    if isinstance(y, list):
+        labels.update({column: display_label(column) for column in y})
+    else:
+        labels[y] = yaxis_title
+    fig = px.bar(
+        data,
+        x="split",
+        y=y,
+        barmode="group",
+        title=title,
+        labels=labels,
+        color_discrete_sequence=["#286090", "#287C8E", "#B7791F", "#667085"],
+    )
+    fig.update_traces(hovertemplate="%{x}<br>%{y:,.3f}<extra></extra>")
+    if rate_axis:
+        fig.update_yaxes(tickformat=".1%")
+        fig.update_traces(hovertemplate="%{x}<br>%{y:.2%}<extra></extra>")
+    return finish_chart(fig, yaxis_title=yaxis_title, xaxis_title="")
+
+
+def scenario_waterfall(frame: pd.DataFrame, *, title: str) -> go.Figure:
+    """Build an ECL delta waterfall from scenario driver effects."""
+    data = frame.copy()
+    total = float(data["effect"].sum())
+    labels = data["driver"].astype(str).tolist() + ["Total delta"]
+    values = data["effect"].astype(float).tolist() + [total]
+    measures = ["relative"] * len(data) + ["total"]
+    fig = go.Figure(
+        go.Waterfall(
+            x=labels,
+            y=values,
+            measure=measures,
+            text=[signed_usd(value) for value in values],
+            textposition="outside",
+            connector={"line": {"color": "#D0D5DD"}},
+            increasing={"marker": {"color": "#B42318"}},
+            decreasing={"marker": {"color": "#287C8E"}},
+            totals={"marker": {"color": "#667085"}},
+            hovertemplate="%{x}<br>%{y:,.2f}<extra></extra>",
+        )
+    )
+    fig.update_layout(title=title, showlegend=False)
+    return finish_chart(fig, yaxis_title="Delta ECL", xaxis_title="")
 
 
 def calibration_scatter(frame: pd.DataFrame, *, title: str) -> go.Figure:

@@ -45,23 +45,21 @@ def main() -> None:
         "Report Generator",
         "Groq Free Tier AI-assisted commentary over validated IFRS 9 artifacts.",
     )
-    render_guidance("report_generator")
-    st.warning(
-        "Governance boundary: the report generator cannot calculate or modify PD, LGD, EAD, "
-        "SICR, Stage, ECL, scenarios, or model metrics. Numbers must originate from the "
-        "structured report context."
-    )
-
     c1, c2, c3, c4 = st.columns(4)
     report_type = c1.selectbox("Report type", REPORT_TYPES)
-    scenario_run = c2.selectbox("Selected run / scenario", SCENARIO_RUNS, index=1)
-    audience = c3.selectbox("Audience", AUDIENCES, index=1)
-    detail = c4.selectbox("Detail", DETAIL_LEVELS, index=1)
+    audience = c2.selectbox("Audience", AUDIENCES, index=1)
+    detail = c3.selectbox("Detail", DETAIL_LEVELS, index=1)
+    scenario_run = c4.selectbox("Selected run / scenario", SCENARIO_RUNS, index=1)
     cooldown = report_cooldown_remaining()
     use_llm = st.toggle(
         "Use Groq LLM when key is available",
         value=groq_key_available() and cooldown == 0,
         disabled=not groq_key_available() or cooldown > 0,
+    )
+    render_guidance("report_generator")
+    st.info(
+        "Controlled reporting workflow: quantitative values come from validated artifacts; "
+        "Groq or fallback templates only generate narrative."
     )
     if cooldown > 0:
         st.caption(f"Groq generation cooldown active: {cooldown} seconds remaining.")
@@ -123,11 +121,21 @@ def main() -> None:
 
     result = ReportGenerationResult.model_validate(st.session_state["last_report_result"])
     report = result.report
-    st.caption(f"Generated timestamp: `{result.generated_at}`")
-    st.caption(f"Source: `{result.source}`")
+    status = (
+        "Unsupported numerical claims detected"
+        if result.unsupported_numbers
+        else "AI narrative generated"
+        if result.source == "groq_structured_output"
+        else "Fallback template used"
+    )
+    s1, s2, s3, s4 = st.columns(4)
+    s1.metric("Source", result.source.replace("_", " ").title())
+    s2.metric("Generated", str(result.generated_at))
+    s3.metric("Validation status", status)
+    s4.metric("Unsupported claims", f"{len(result.unsupported_numbers):,.0f}")
     st.info("AI-assisted commentary. Review source artifacts and validation warnings before use.")
     if result.unsupported_numbers:
-        st.error("Unsupported numerical claims detected.")
+        st.warning("Unsupported numerical claims detected.")
         st.write(result.unsupported_numbers)
     for warning in result.warnings:
         st.warning(warning)
@@ -147,26 +155,33 @@ def main() -> None:
             with st.expander(heading, expanded=heading == "Executive Summary"):
                 st.write(body)
 
-    payloads = export_payloads(result)
-    d1, d2, d3 = st.columns(3)
-    d1.download_button(
-        "Download Markdown",
-        payloads["markdown"],
-        file_name="ifrs9_report.md",
-        mime="text/markdown",
-    )
-    d2.download_button(
-        "Download JSON",
-        payloads["json"],
-        file_name="ifrs9_report.json",
-        mime="application/json",
-    )
-    d3.download_button(
-        "Download HTML",
-        payloads["html"],
-        file_name="ifrs9_report.html",
-        mime="text/html",
-    )
+    with st.expander("Source run IDs and methodology limitations", expanded=False):
+        if "last_report_context" in st.session_state:
+            st.json(st.session_state["last_report_context"].get("source_runs", {}))
+        for warning in result.warnings:
+            st.caption(f"- {warning}")
+
+    with st.expander("Exports", expanded=True):
+        payloads = export_payloads(result)
+        d1, d2, d3 = st.columns(3)
+        d1.download_button(
+            "Markdown",
+            payloads["markdown"],
+            file_name="ifrs9_report.md",
+            mime="text/markdown",
+        )
+        d2.download_button(
+            "JSON",
+            payloads["json"],
+            file_name="ifrs9_report.json",
+            mime="application/json",
+        )
+        d3.download_button(
+            "HTML",
+            payloads["html"],
+            file_name="ifrs9_report.html",
+            mime="text/html",
+        )
 
 
 main()

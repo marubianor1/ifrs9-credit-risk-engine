@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+import pandas as pd
 import plotly.express as px
 import streamlit as st
+from app.components.charts import finish_chart, scenario_waterfall
+from app.components.formatting import percentage, signed_usd, usd
 from app.components.guidance import render_guidance
-from app.components.layout import friendly_error, money, page_title, pct
+from app.components.layout import friendly_error, page_title
+from app.components.metrics import kpi_row
+from app.components.tables import format_table
+from app.components.theme import rating_order
 from app.services.runtime import full_mode_message, is_cloud_demo
 from app.services.scenario_lab import (
     load_lab_config,
@@ -44,41 +50,74 @@ def _render_result(result: dict) -> None:
     stage = result["stage"]
     rating = result["rating"]
     waterfall = result["waterfall"]
+    stressed_stage_23 = float(stage.loc[stage["stage"].isin([2, 3]), "stressed_ead"].sum())
+    stressed_ead = float(summary["stressed_ead"])
 
-    st.subheader("Baseline vs Stressed ECL")
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Baseline EAD", money(summary["baseline_ead"]))
-    k2.metric("Baseline ECL", money(summary["baseline_ecl"]))
-    k3.metric("Stressed ECL", money(summary["stressed_ecl"]))
-    k4.metric("Delta ECL", money(summary["delta_ecl"]), pct(summary["delta_ecl_pct"]))
+    kpi_row(
+        [
+            (
+                "Stressed ECL",
+                usd(summary["stressed_ecl"]),
+                "Scenario ECL after stress assumptions.",
+            ),
+            ("Delta ECL", signed_usd(summary["delta_ecl"]), "Stressed ECL less baseline ECL."),
+            ("Delta %", percentage(summary["delta_ecl_pct"]), "Delta ECL / baseline ECL."),
+            ("Stressed EAD", usd(summary["stressed_ead"]), "Exposure after stress multiplier."),
+            (
+                "Stage 2 + 3 share",
+                percentage(stressed_stage_23 / stressed_ead),
+                "Stressed higher-risk exposure share.",
+            ),
+        ]
+    )
 
     left, right = st.columns(2)
     with left:
-        st.subheader("Stage Migration")
+        st.subheader("Driver waterfall")
+        st.plotly_chart(
+            scenario_waterfall(waterfall, title="ECL delta waterfall"),
+            use_container_width=True,
+        )
+        st.dataframe(format_table(waterfall), use_container_width=True, hide_index=True)
+    with right:
+        st.subheader("Stage migration")
         chart = stage.melt(
             id_vars=["stage"],
-            value_vars=["baseline_ecl", "stressed_ecl"],
-            var_name="case",
-            value_name="ecl",
+            value_vars=["baseline_ead", "stressed_ead"],
+            var_name="Case",
+            value_name="EAD",
         )
-        stage_fig = px.bar(chart, x="stage", y="ecl", color="case", barmode="group")
-        st.plotly_chart(stage_fig, use_container_width=True)
-        st.dataframe(stage, use_container_width=True, hide_index=True)
-    with right:
-        st.subheader("Driver Waterfall")
-        waterfall_fig = px.bar(waterfall, x="driver", y="effect", color="driver")
-        st.plotly_chart(waterfall_fig, use_container_width=True)
-        st.dataframe(waterfall, use_container_width=True, hide_index=True)
+        chart["Case"] = chart["Case"].map(
+            {"baseline_ead": "Baseline EAD", "stressed_ead": "Stressed EAD"}
+        )
+        stage_fig = px.bar(
+            chart,
+            x="stage",
+            y="EAD",
+            color="Case",
+            barmode="group",
+            title="Baseline versus stressed EAD by stage",
+            labels={"stage": "IFRS 9 Stage"},
+        )
+        st.plotly_chart(finish_chart(stage_fig, yaxis_title="EAD"), use_container_width=True)
+        st.dataframe(format_table(stage), use_container_width=True, hide_index=True)
 
     st.subheader("ECL Delta by Rating")
-    rating_fig = px.bar(rating, x="rating", y="delta_ecl", color="rating")
-    st.plotly_chart(rating_fig, use_container_width=True)
-    st.dataframe(rating, use_container_width=True, hide_index=True)
+    rating_fig = px.bar(
+        rating,
+        x="rating",
+        y="delta_ecl",
+        color="rating",
+        category_orders={"rating": rating_order()},
+        title="ECL delta by rating",
+        labels={"rating": "Rating", "delta_ecl": "Delta ECL"},
+    )
+    st.plotly_chart(finish_chart(rating_fig, yaxis_title="Delta ECL"), use_container_width=True)
+    st.dataframe(format_table(rating), use_container_width=True, hide_index=True)
 
 
 def main() -> None:
     page_title("Scenario Lab", "Stress existing ECL outputs without refitting parent models.")
-    render_guidance("scenario_lab")
     lab_config = load_lab_config()
     labels = {
         "baseline": "Baseline",
@@ -97,12 +136,15 @@ def main() -> None:
     st.session_state["scenario_preset"] = preset_key
     defaults = _preset_defaults(preset_key)
 
+    st.caption(
+        "Mild and Severe are illustrative project stress scenarios, not regulatory scenarios."
+    )
+    render_guidance("scenario_lab")
     st.info(
         "Scenario Lab overlays are stress assumptions for portfolio analysis. They are not "
         "newly fitted PD, LGD, EAD, or staging models."
     )
     if is_cloud_demo():
-        st.info(full_mode_message())
         preset_map = {
             "Baseline": "scenario_baseline_v1",
             "Mild deterioration": "scenario_mild_deterioration_v1",
@@ -116,13 +158,19 @@ def main() -> None:
                 friendly_error(exc)
                 return
             scenario_summaries.append({"label": label, **summary})
-        st.subheader("Preset Scenario Comparison")
-        st.dataframe(scenario_summaries, use_container_width=True, hide_index=True)
+        st.subheader("Preset scenario comparison")
+        st.dataframe(
+            format_table(pd.DataFrame(scenario_summaries)),
+            use_container_width=True,
+            hide_index=True,
+        )
         selected_cloud = st.selectbox("Scenario result", list(preset_map))
         _render_result(_load_result(preset_map[selected_cloud]))
+        with st.expander("Scenario controls", expanded=False):
+            st.info(full_mode_message())
         return
 
-    with st.form("scenario_controls"):
+    with st.expander("Scenario controls", expanded=False):
         st.subheader("Macro / PD")
         c1, c2, c3 = st.columns(3)
         unemployment = c1.number_input(
@@ -251,7 +299,7 @@ def main() -> None:
             step=0.01,
         )
 
-        run_clicked = st.form_submit_button("Run Scenario", type="primary")
+        run_clicked = st.button("Run Scenario", type="primary")
 
     if run_clicked:
         try:

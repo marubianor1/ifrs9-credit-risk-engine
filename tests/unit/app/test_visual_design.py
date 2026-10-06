@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 import pandas as pd
-from app.components.charts import calibration_scatter, scenario_delta_bar, stage_bar
+from app.components.charts import (
+    calibration_scatter,
+    scenario_delta_bar,
+    scenario_waterfall,
+    stage_bar,
+)
 from app.components.formatting import (
     au_date,
     bps,
@@ -114,6 +119,21 @@ def test_table_formatters_do_not_treat_text_method_columns_as_rates() -> None:
     assert "raw" in styler.to_html()
 
 
+def test_table_headers_do_not_expose_snake_case_labels() -> None:
+    frame = pd.DataFrame(
+        [
+            {
+                "observed_bad_rate": 0.01,
+                "predicted_bad_rate": 0.012,
+                "oe_ratio": 0.83,
+            }
+        ]
+    )
+    styler = format_table(frame)
+
+    assert styler.data.columns.tolist() == ["Observed default rate", "Predicted PD", "O/E"]
+
+
 def test_percentage_axis_helper_formats_rates() -> None:
     frame = pd.DataFrame(
         [{"stage": 1, "coverage_ratio": 0.01}, {"stage": 2, "coverage_ratio": 0.25}]
@@ -153,3 +173,17 @@ def test_scenario_delta_values_are_vs_base() -> None:
     y_values = sorted(float(value) for trace in fig.data for value in trace.y)
 
     assert y_values == [-10.0, 0.0, 15.0]
+
+
+def test_scenario_waterfall_reconciles_to_total_delta() -> None:
+    frame = pd.DataFrame(
+        [
+            {"driver": "PD / macro", "effect": 10.0},
+            {"driver": "Stage migration", "effect": 5.0},
+            {"driver": "LGD", "effect": -2.0},
+        ]
+    )
+    fig = scenario_waterfall(frame, title="Waterfall")
+
+    assert fig.data[0].measure[-1] == "total"
+    assert float(fig.data[0].y[-1]) == 13.0

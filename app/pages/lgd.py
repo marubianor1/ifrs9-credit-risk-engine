@@ -2,15 +2,20 @@
 
 from __future__ import annotations
 
+import pandas as pd
 import plotly.express as px
 import streamlit as st
+from app.components.charts import finish_chart, split_grouped_bar
+from app.components.formatting import percentage, ratio
 from app.components.guidance import render_guidance
-from app.components.layout import friendly_error, page_title, pct
+from app.components.layout import friendly_error, page_title
+from app.components.metrics import kpi_row
+from app.components.tables import format_table
+from app.components.theme import rating_order
 from app.services.lgd import (
     BASELINE_RUN,
     available_lgd_runs,
     lgd_governance_status,
-    lgd_population_summary,
     load_lgd_artifacts,
     load_lgd_forward_artifacts,
 )
@@ -26,15 +31,33 @@ def _load_forward(run_id: str):
     return load_lgd_forward_artifacts(run_id)
 
 
+def _challenger_table(metrics: pd.DataFrame) -> pd.DataFrame:
+    summary = (
+        metrics.loc[metrics["model"].str.contains("combined", case=False, na=False)]
+        .pivot_table(index="model", columns="split", values="oe_ratio", aggfunc="mean")
+        .reset_index()
+    )
+    if summary.empty:
+        summary = metrics.pivot_table(
+            index="model",
+            columns="split",
+            values="oe_ratio",
+            aggfunc="mean",
+        ).reset_index()
+    summary["Status"] = "Rejected - temporal instability"
+    summary["Reason"] = "Worse temporal / OOT stability than lgd_v1_2 baseline"
+    return summary.rename(
+        columns={
+            "model": "Model",
+            "VALIDATION": "Validation O/E",
+            "OOT": "OOT O/E",
+        }
+    )
+
+
 def main() -> None:
     page_title("LGD", "Loss given default diagnostics and governance.")
-    render_guidance("lgd")
     governance = lgd_governance_status()
-    with st.expander("Model governance status", expanded=True):
-        st.write(f"Production/project baseline: `{governance['production_baseline']}`")
-        st.write(f"Rejected challengers: `{', '.join(governance['rejected_challengers'])}`")
-        st.caption(str(governance["reason"]))
-
     runs = available_lgd_runs()
     selected = st.selectbox(
         "LGD run",
@@ -47,93 +70,201 @@ def main() -> None:
         friendly_error(exc)
         return
 
-    backtesting = artifacts["backtesting"]
-    components = artifacts["components"]
-    by_rating = artifacts["by_rating"]
-    by_year = artifacts["by_year"]
-    downturn = artifacts["downturn"]
-    recovery = artifacts["recovery_timing"]
-    resolution = artifacts["resolution"]
-    population = lgd_population_summary(artifacts["episodes"])
+    backtesting = artifacts["backtesting"].copy()
+    components = artifacts["components"].copy()
+    by_rating = artifacts["by_rating"].copy()
+    by_year = artifacts["by_year"].copy()
+    downturn = artifacts["downturn"].copy()
+    recovery = artifacts["recovery_timing"].copy()
+    resolution = artifacts["resolution"].copy()
+    validation = backtesting.loc[backtesting["split"].eq("VALIDATION")]
+    selected_row = validation.iloc[0] if not validation.empty else backtesting.iloc[0]
+    downturn_mean = float(downturn["downturn_overlay_factor"].mean())
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Default episodes", f"{population['episodes']:,.0f}")
-    c2.metric("Resolved episodes", f"{population['resolved']:,.0f}")
-    c3.metric("Cure rate", pct(population["cure_rate"]))
+    st.caption(f"Selected run: `{selected}` | Production baseline: `{BASELINE_RUN}`")
+    status_left, status_right = st.columns([1, 1])
+    with status_left:
+        st.info(f"Selected baseline: `{governance['production_baseline']}`")
+    with status_right:
+        st.warning("Challenger status: Rejected - temporal instability")
+
+    kpi_row(
+        [
+            (
+                "Realised LGD",
+                percentage(selected_row["realized_mean_lgd"]),
+                "Validation realised mean LGD.",
+            ),
+            (
+                "Predicted LGD",
+                percentage(selected_row["predicted_lgd"]),
+                "Validation predicted LGD.",
+            ),
+            ("O/E", ratio(selected_row["oe_ratio"]), "Observed / expected LGD."),
+            (
+                "Cure rate",
+                percentage(selected_row["cure_rate"]),
+                "Resolved cured default episodes.",
+            ),
+            ("Downturn sensitivity", ratio(downturn_mean), "Average downturn overlay factor."),
+        ]
+    )
+    render_guidance("lgd")
 
     tab_perf, tab_components, tab_segments, tab_challengers = st.tabs(
         ["Performance", "Decomposition", "Segments", "Challengers"]
     )
     with tab_perf:
-        st.subheader("Realized vs Predicted LGD")
-        fig = px.bar(
+        st.subheader("Realised versus predicted LGD")
+        st.plotly_chart(
+            split_grouped_bar(
+                backtesting,
+                y=["realized_mean_lgd", "predicted_lgd"],
+                title="Realised and predicted LGD by split",
+                yaxis_title="LGD",
+                rate_axis=True,
+            ),
+            use_container_width=True,
+        )
+        oe_fig = px.bar(
             backtesting,
             x="split",
-            y=["realized_mean_lgd", "predicted_lgd"],
-            barmode="group",
+            y="oe_ratio",
+            color="split",
+            category_orders={"split": ["TRAIN", "VALIDATION", "OOT"]},
+            title="LGD O/E by split",
+            labels={"split": "Split", "oe_ratio": "O/E"},
+            color_discrete_map={"TRAIN": "#286090", "VALIDATION": "#667085", "OOT": "#98A2B3"},
         )
-        st.plotly_chart(fig, use_container_width=True)
-        st.dataframe(backtesting, use_container_width=True, hide_index=True)
-        st.subheader("O/E by Split")
-        oe_fig = px.bar(backtesting, x="split", y="oe_ratio", color="split")
-        st.plotly_chart(oe_fig, use_container_width=True)
+        oe_fig.update_traces(showlegend=False, hovertemplate="%{x}<br>%{y:.2f}<extra></extra>")
+        st.plotly_chart(finish_chart(oe_fig, yaxis_title="O/E"), use_container_width=True)
+        st.dataframe(format_table(backtesting), use_container_width=True, hide_index=True)
+
     with tab_components:
-        st.subheader("Cure vs Non-cure Decomposition")
-        st.dataframe(components, use_container_width=True, hide_index=True)
-        fig = px.bar(
-            components,
-            x="split",
-            y=["observed_p_cure", "predicted_p_cure"],
-            barmode="group",
+        st.subheader("Cure / non-cure branch decomposition")
+        branch = components.melt(
+            id_vars=["split"],
+            value_vars=[
+                "observed_p_cure",
+                "observed_lgd_cure",
+                "observed_lgd_non_cure",
+            ],
+            var_name="Measure",
+            value_name="Value",
         )
-        st.plotly_chart(fig, use_container_width=True)
+        branch["Measure"] = branch["Measure"].map(
+            {
+                "observed_p_cure": "Probability of cure",
+                "observed_lgd_cure": "LGD | cure",
+                "observed_lgd_non_cure": "LGD | non-cure",
+            }
+        )
+        fig = px.bar(
+            branch,
+            x="split",
+            y="Value",
+            color="Measure",
+            barmode="group",
+            category_orders={"split": ["TRAIN", "VALIDATION", "OOT"]},
+            title="Observed cure and severity components",
+            labels={"split": "Split", "Value": "Rate"},
+        )
+        fig.update_yaxes(tickformat=".1%")
+        st.plotly_chart(finish_chart(fig, yaxis_title="Rate"), use_container_width=True)
+        st.dataframe(format_table(components), use_container_width=True, hide_index=True)
+
     with tab_segments:
         left, right = st.columns(2)
         with left:
-            st.subheader("LGD by Rating")
-            rating_fig = px.bar(
-                by_rating,
-                x="rating_at_default",
+            st.subheader("LGD by rating")
+            rating = by_rating.rename(columns={"rating_at_default": "rating"}).copy()
+            rating["rating"] = pd.Categorical(rating["rating"], rating_order(), ordered=True)
+            rating = rating.sort_values(["split", "rating"])
+            fig = px.bar(
+                rating,
+                x="rating",
                 y="oe_ratio",
                 color="split",
+                barmode="group",
+                category_orders={"rating": rating_order(), "split": ["TRAIN", "VALIDATION", "OOT"]},
+                title="LGD O/E by rating",
+                labels={"rating": "Rating", "oe_ratio": "O/E", "split": "Split"},
             )
-            st.plotly_chart(rating_fig, use_container_width=True)
-            st.dataframe(by_rating, use_container_width=True, hide_index=True)
+            st.plotly_chart(finish_chart(fig, yaxis_title="O/E"), use_container_width=True)
+            st.dataframe(format_table(by_rating), use_container_width=True, hide_index=True)
         with right:
-            st.subheader("LGD by Default Year")
-            year_fig = px.line(by_year, x="default_year", y="oe_ratio", color="split")
-            st.plotly_chart(year_fig, use_container_width=True)
-            st.dataframe(by_year, use_container_width=True, hide_index=True)
-        st.subheader("Downturn Factors")
-        st.dataframe(downturn, use_container_width=True, hide_index=True)
-        st.subheader("Recovery Timing")
-        st.dataframe(recovery, use_container_width=True, hide_index=True)
-        st.subheader("Resolution Population")
-        st.dataframe(resolution, use_container_width=True, hide_index=True)
-    with tab_challengers:
-        st.info("LGD challenger runs are selectable for review only. The UI does not refit LGD.")
-        st.dataframe(artifacts["model_metrics"], use_container_width=True, hide_index=True)
-        fl_run = st.selectbox(
-            "Forward-looking LGD challenger",
-            ["lgd_fl_v1", "lgd_fl_v2"],
+            st.subheader("LGD by default year")
+            year_fig = px.line(
+                by_year,
+                x="default_year",
+                y="oe_ratio",
+                color="split",
+                markers=True,
+                category_orders={"split": ["TRAIN", "VALIDATION", "OOT"]},
+                title="LGD O/E by default year",
+                labels={"default_year": "Default year", "oe_ratio": "O/E", "split": "Split"},
+            )
+            st.plotly_chart(
+                finish_chart(year_fig, yaxis_title="O/E", xaxis_title="Default year"),
+                use_container_width=True,
+            )
+            st.dataframe(format_table(by_year), use_container_width=True, hide_index=True)
+        st.subheader("Downturn sensitivity")
+        downturn_chart = downturn.copy()
+        downturn_chart["delta"] = downturn_chart["downturn_overlay_factor"] - 1.0
+        fig = px.bar(
+            downturn_chart,
+            x="rating_at_default",
+            y="delta",
+            title="Downturn LGD overlay above baseline",
+            labels={"rating_at_default": "Rating", "delta": "Overlay above baseline"},
         )
+        fig.update_yaxes(tickformat=".1%")
+        st.plotly_chart(
+            finish_chart(fig, yaxis_title="Overlay above baseline"),
+            use_container_width=True,
+        )
+        with st.expander("Recovery timing and resolution population", expanded=False):
+            st.dataframe(format_table(recovery), use_container_width=True, hide_index=True)
+            st.dataframe(format_table(resolution), use_container_width=True, hide_index=True)
+
+    with tab_challengers:
+        st.info(
+            "LGD challenger runs are visible for governance review only. "
+            "The UI does not refit LGD."
+        )
+        st.dataframe(
+            format_table(_challenger_table(artifacts["model_metrics"])),
+            use_container_width=True,
+            hide_index=True,
+        )
+        fl_run = st.selectbox("Forward-looking LGD challenger", ["lgd_fl_v1", "lgd_fl_v2"])
         try:
             fl_artifacts = _load_forward(fl_run)
         except Exception as exc:
             friendly_error(exc)
         else:
-            st.subheader("Probability-weighted LGD")
-            st.dataframe(fl_artifacts["weighted"], use_container_width=True, hide_index=True)
-            st.subheader("Scenario LGD by Rating")
-            st.dataframe(
-                fl_artifacts["scenario_by_rating"],
-                use_container_width=True,
-                hide_index=True,
-            )
-            st.subheader("Macro Relationship Diagnostics")
-            st.dataframe(fl_artifacts["diagnostics"], use_container_width=True, hide_index=True)
-            st.subheader("Scenario Sensitivity")
-            st.dataframe(fl_artifacts["sensitivity"], use_container_width=True, hide_index=True)
+            with st.expander("Forward-looking challenger diagnostics", expanded=False):
+                st.dataframe(
+                    format_table(fl_artifacts["weighted"]),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+                st.dataframe(
+                    format_table(fl_artifacts["scenario_by_rating"]),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+                st.dataframe(
+                    format_table(fl_artifacts["diagnostics"]),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+                st.dataframe(
+                    format_table(fl_artifacts["sensitivity"]),
+                    use_container_width=True,
+                    hide_index=True,
+                )
 
 
 main()
