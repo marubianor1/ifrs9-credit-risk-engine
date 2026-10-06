@@ -5,6 +5,7 @@ from __future__ import annotations
 import streamlit as st
 from app.components.charts import rating_bar, scenario_delta_bar, stage_bar, stage_mix_bar
 from app.components.formatting import au_date, percentage, signed_usd, usd
+from app.components.guidance import render_guidance
 from app.components.layout import friendly_error, page_title
 from app.components.metrics import kpi_row
 from app.components.tables import format_table
@@ -39,6 +40,7 @@ def main() -> None:
     downside_impact = downside_ecl - base_ecl
 
     st.caption("Selected run: `ecl_v1` | Reporting date: " + au_date("2025-03-01"))
+    render_guidance("overview")
     kpi_row(
         [
             ("Portfolio EAD", usd(kpis["total_ead"]), "Current exposure at reporting date."),

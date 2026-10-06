@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import plotly.express as px
 import streamlit as st
+from app.components.guidance import render_guidance
 from app.components.layout import friendly_error, page_title
 from app.services.runtime import full_mode_message, is_cloud_demo
 from app.services.sicr import (
@@ -20,6 +21,7 @@ def _load():
 
 def main() -> None:
     page_title("SICR & Staging", "Stage allocation, trigger diagnostics, and threshold simulation.")
+    render_guidance("sicr")
     try:
         artifacts = _load()
     except Exception as exc:

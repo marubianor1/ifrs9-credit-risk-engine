@@ -151,7 +151,7 @@ def _fake_streamlit() -> types.ModuleType:
 def fake_streamlit(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(sys.modules, "streamlit", _fake_streamlit())
     for name in list(sys.modules):
-        if name.startswith("app.pages."):
+        if name.startswith("app.pages.") or name == "app.components.guidance":
             monkeypatch.delitem(sys.modules, name, raising=False)
 
 

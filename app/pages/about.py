@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import streamlit as st
+from app.components.guidance import render_glossary
 from app.components.layout import page_title
 
 
@@ -42,6 +43,7 @@ def main() -> None:
         downloads are report-level summaries rather than loan-level datasets.
         """
     )
+    render_glossary()
 
 
 main()

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import plotly.express as px
 import streamlit as st
+from app.components.guidance import render_guidance
 from app.components.layout import friendly_error, money, page_title, pct
 from app.services.runtime import full_mode_message, is_cloud_demo
 from app.services.scenario_lab import (
@@ -77,6 +78,7 @@ def _render_result(result: dict) -> None:
 
 def main() -> None:
     page_title("Scenario Lab", "Stress existing ECL outputs without refitting parent models.")
+    render_guidance("scenario_lab")
     lab_config = load_lab_config()
     labels = {
         "baseline": "Baseline",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import streamlit as st
+from app.components.guidance import render_guidance
 from app.components.layout import friendly_error, page_title
 from app.services.reporting import (
     AUDIENCES,
@@ -44,6 +45,7 @@ def main() -> None:
         "Report Generator",
         "Groq Free Tier AI-assisted commentary over validated IFRS 9 artifacts.",
     )
+    render_guidance("report_generator")
     st.warning(
         "Governance boundary: the report generator cannot calculate or modify PD, LGD, EAD, "
         "SICR, Stage, ECL, scenarios, or model metrics. Numbers must originate from the "

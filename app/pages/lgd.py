@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import plotly.express as px
 import streamlit as st
+from app.components.guidance import render_guidance
 from app.components.layout import friendly_error, page_title, pct
 from app.services.lgd import (
     BASELINE_RUN,
@@ -27,6 +28,7 @@ def _load_forward(run_id: str):
 
 def main() -> None:
     page_title("LGD", "Loss given default diagnostics and governance.")
+    render_guidance("lgd")
     governance = lgd_governance_status()
     with st.expander("Model governance status", expanded=True):
         st.write(f"Production/project baseline: `{governance['production_baseline']}`")

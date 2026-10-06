@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import plotly.express as px
 import streamlit as st
+from app.components.guidance import render_guidance
 from app.components.layout import friendly_error, page_title
 from app.services.ead import (
     BASELINE_METHOD,
@@ -21,6 +22,7 @@ def _load(run_id: str):
 
 def main() -> None:
     page_title("EAD", "Exposure at default diagnostics for amortizing mortgages.")
+    render_guidance("ead")
     runs = available_ead_runs()
     selected = st.selectbox("EAD run", runs, index=runs.index("ead_v1") if "ead_v1" in runs else 0)
     st.info(f"Selected baseline method = `{BASELINE_METHOD}`")

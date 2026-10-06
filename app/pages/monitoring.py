@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 from app.components.charts import metric_bar
 from app.components.formatting import SPLIT_ORDER, display_label
+from app.components.guidance import render_guidance
 from app.components.layout import friendly_error, page_title
 from app.components.metrics import kpi_row
 from app.components.tables import add_status_label, format_table
@@ -31,6 +32,7 @@ def main() -> None:
         "Model Monitoring",
         "Model-risk dashboard using transparent project thresholds for status assessment.",
     )
+    render_guidance("monitoring")
     try:
         artifacts, thresholds = _load()
     except Exception as exc:

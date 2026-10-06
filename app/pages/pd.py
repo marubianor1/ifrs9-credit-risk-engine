@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import plotly.express as px
 import streamlit as st
+from app.components.guidance import render_guidance
 from app.components.layout import friendly_error, page_title
 from app.services.pd import available_pd_runs, load_pd_artifacts, run_pd_from_controls
 from app.services.runtime import full_mode_message, is_cloud_demo
@@ -16,6 +17,7 @@ def _load(run_id: str):
 
 def main() -> None:
     page_title("PD", "Calibration, rating scale, lifetime PD and backtesting artifacts.")
+    render_guidance("pd")
     runs = available_pd_runs()
     if not runs:
         st.warning("No PD artifacts are available.")

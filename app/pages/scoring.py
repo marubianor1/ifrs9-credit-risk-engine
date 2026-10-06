@@ -7,6 +7,7 @@ import plotly.express as px
 import streamlit as st
 from app.components.charts import calibration_scatter, finish_chart, metric_bar
 from app.components.formatting import SPLIT_ORDER, ordered_splits, percentage
+from app.components.guidance import render_guidance
 from app.components.layout import friendly_error, page_title
 from app.components.metrics import kpi_row
 from app.components.tables import bad_rate_table, format_table
@@ -62,6 +63,7 @@ def main() -> None:
     ).sort_values("split")
 
     st.caption(f"Selected run: `{selected}` | Reporting date: 1 Mar 2025")
+    render_guidance("scoring")
     selected_split = st.selectbox(
         "Performance split",
         split_order,
@@ -166,6 +168,7 @@ def main() -> None:
         ["Performance", "Calibration", "Stability", "Feature Diagnostics"]
     )
     with tab_perf:
+        render_guidance("scoring_performance")
         st.plotly_chart(
             metric_bar(
                 metrics,
@@ -180,6 +183,7 @@ def main() -> None:
         st.dataframe(format_table(metrics), use_container_width=True, hide_index=True)
     with tab_cal:
         st.subheader("Calibration curve")
+        render_guidance("scoring_calibration")
         if {"predicted_bad_rate", "observed_bad_rate"}.issubset(calibration.columns):
             st.plotly_chart(
                 calibration_scatter(
