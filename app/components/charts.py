@@ -17,6 +17,17 @@ from app.components.theme import (
     rating_order,
 )
 
+__all__ = [
+    "calibration_scatter",
+    "finish_chart",
+    "metric_bar",
+    "rating_bar",
+    "scenario_bar",
+    "scenario_delta_bar",
+    "stage_bar",
+    "stage_mix_bar",
+]
+
 
 def finish_chart(fig: go.Figure, *, yaxis_title: str = "", xaxis_title: str = "") -> go.Figure:
     """Apply shared accessibility and layout standards."""

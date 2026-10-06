@@ -80,7 +80,10 @@ def add_status_label(frame: pd.DataFrame, column: str = "status") -> pd.DataFram
 
 def _formatters(frame: pd.DataFrame) -> dict[str, object]:
     formatters: dict[str, object] = {}
+    numeric_cols = set(frame.select_dtypes(include=["number"]).columns)
     for column in frame.columns:
+        if column not in numeric_cols:
+            continue
         name = column.lower()
         if any(token in name for token in ["ead", "ecl", "amount"]):
             formatters[column] = usd

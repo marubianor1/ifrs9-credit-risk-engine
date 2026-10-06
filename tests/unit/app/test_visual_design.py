@@ -11,7 +11,7 @@ from app.components.formatting import (
     ratio,
     usd,
 )
-from app.components.tables import bad_rate_table, calibration_status
+from app.components.tables import bad_rate_table, calibration_status, format_table
 from app.components.theme import (
     RATING_COLOURS,
     SCENARIO_COLOURS,
@@ -97,6 +97,21 @@ def test_bad_rate_table_uses_display_labels_and_status_markers() -> None:
     ]
     assert table["Split"].astype(str).tolist() == ["TRAIN", "VALIDATION", "OOT"]
     assert table.loc[0, "Calibration status"].startswith("●")
+
+
+def test_table_formatters_do_not_treat_text_method_columns_as_rates() -> None:
+    frame = pd.DataFrame(
+        [
+            {
+                "calibration_method": "raw",
+                "observed_bad_rate": 0.01,
+                "predicted_bad_rate": 0.012,
+            }
+        ]
+    )
+    styler = format_table(frame)
+
+    assert "raw" in styler.to_html()
 
 
 def test_percentage_axis_helper_formats_rates() -> None:
