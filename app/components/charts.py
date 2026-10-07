@@ -11,6 +11,7 @@ from app.components.theme import (
     GRID,
     RATING_COLOURS,
     SCENARIO_COLOURS,
+    SECONDARY_TEXT,
     STAGE_COLOURS,
     TEXT,
     apply_plotly_template,
@@ -19,14 +20,18 @@ from app.components.theme import (
 
 __all__ = [
     "calibration_scatter",
+    "dumbbell_chart",
     "finish_chart",
+    "horizontal_contribution_bar",
     "metric_bar",
+    "oe_bullet_chart",
     "rating_bar",
     "scenario_waterfall",
     "split_grouped_bar",
     "scenario_bar",
     "scenario_delta_bar",
     "stage_bar",
+    "stage_concentration_chart",
     "stage_mix_bar",
 ]
 
@@ -41,12 +46,12 @@ def finish_chart(fig: go.Figure, *, yaxis_title: str = "", xaxis_title: str = ""
     """Apply shared accessibility and layout standards."""
     apply_plotly_template()
     fig.update_layout(
-        template="ifrs9_v2",
+        template="ifrs9_v3",
         autosize=True,
         hovermode="x unified",
         xaxis_title=xaxis_title,
         yaxis_title=yaxis_title,
-        margin={"l": 36, "r": 18, "t": 44, "b": 40},
+        margin={"l": 36, "r": 18, "t": 36, "b": 36},
         modebar_remove=[
             "select2d",
             "lasso2d",
@@ -59,6 +64,170 @@ def finish_chart(fig: go.Figure, *, yaxis_title: str = "", xaxis_title: str = ""
     fig.update_xaxes(showgrid=False, tickfont={"color": TEXT})
     fig.update_yaxes(gridcolor=GRID, rangemode="tozero", tickfont={"color": TEXT})
     return fig
+
+
+def horizontal_contribution_bar(
+    frame: pd.DataFrame,
+    *,
+    label: str,
+    value: str,
+    title: str,
+    xaxis_title: str,
+    colour: str = "#2457A6",
+    formatter=usd,
+) -> go.Figure:
+    """Build a ranked horizontal contribution chart."""
+    data = frame.copy().sort_values(value, ascending=True)
+    fig = go.Figure(
+        go.Bar(
+            y=data[label].astype(str),
+            x=data[value],
+            orientation="h",
+            marker_color=colour,
+            text=data[value].map(formatter),
+            textposition="outside",
+            hovertemplate="%{y}<br>%{x:,.2f}<extra></extra>",
+        )
+    )
+    fig.update_layout(title=title, showlegend=False)
+    return finish_chart(fig, yaxis_title="", xaxis_title=xaxis_title)
+
+
+def dumbbell_chart(
+    frame: pd.DataFrame,
+    *,
+    category: str,
+    left_value: str,
+    right_value: str,
+    left_label: str,
+    right_label: str,
+    title: str,
+    xaxis_title: str,
+    formatter=percentage,
+) -> go.Figure:
+    """Build a connected-dot comparison chart."""
+    data = frame.copy()
+    y_values = data[category].astype(str).tolist()
+    fig = go.Figure()
+    for _, row in data.iterrows():
+        fig.add_trace(
+            go.Scatter(
+                x=[row[left_value], row[right_value]],
+                y=[str(row[category]), str(row[category])],
+                mode="lines",
+                line={"color": "#D0D5DD", "width": 2},
+                hoverinfo="skip",
+                showlegend=False,
+            )
+        )
+    fig.add_trace(
+        go.Scatter(
+            x=data[left_value],
+            y=y_values,
+            mode="markers+text",
+            name=left_label,
+            marker={"color": "#5B7FA3", "size": 10, "line": {"color": "#FFFFFF", "width": 1}},
+            text=data[left_value].map(formatter),
+            textposition="middle left",
+            hovertemplate=f"{left_label}: %{{x:,.4f}}<extra></extra>",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=data[right_value],
+            y=y_values,
+            mode="markers+text",
+            name=right_label,
+            marker={"color": "#2457A6", "size": 10, "line": {"color": "#FFFFFF", "width": 1}},
+            text=data[right_value].map(formatter),
+            textposition="middle right",
+            hovertemplate=f"{right_label}: %{{x:,.4f}}<extra></extra>",
+        )
+    )
+    fig.update_layout(title=title, legend={"orientation": "h", "y": 1.04})
+    return finish_chart(fig, yaxis_title="", xaxis_title=xaxis_title)
+
+
+def oe_bullet_chart(
+    frame: pd.DataFrame,
+    *,
+    category: str,
+    oe_value: str,
+    title: str,
+    thresholds: dict | None = None,
+) -> go.Figure:
+    """Build O/E bullet visuals centred on 1.00."""
+    data = frame.copy()
+    y_values = data[category].astype(str)
+    fig = go.Figure()
+    if thresholds:
+        bands = [
+            (thresholds.get("amber_min", 0.0), thresholds.get("green_min", 0.8), "#FDECEC"),
+            (thresholds.get("green_min", 0.8), thresholds.get("green_max", 1.2), "#E8F3EE"),
+            (thresholds.get("green_max", 1.2), thresholds.get("amber_max", 1.5), "#FFF4DE"),
+        ]
+        for low, high, colour in bands:
+            fig.add_shape(
+                type="rect",
+                x0=low,
+                x1=high,
+                y0=-0.5,
+                y1=len(data) - 0.5,
+                fillcolor=colour,
+                opacity=0.55,
+                line_width=0,
+                layer="below",
+            )
+    fig.add_vline(x=1.0, line_color=SECONDARY_TEXT, line_dash="dash", line_width=1)
+    fig.add_trace(
+        go.Scatter(
+            x=data[oe_value],
+            y=y_values,
+            mode="markers+text",
+            marker={"color": "#2457A6", "size": 11},
+            text=data[oe_value].map(lambda value: f"{float(value):.2f}"),
+            textposition="middle right",
+            hovertemplate="%{y}<br>O/E: %{x:.2f}<extra></extra>",
+            showlegend=False,
+        )
+    )
+    fig.update_layout(title=title)
+    fig.update_xaxes(range=[0, max(1.6, float(data[oe_value].max()) * 1.15)])
+    return finish_chart(fig, yaxis_title="", xaxis_title="Observed / expected")
+
+
+def stage_concentration_chart(frame: pd.DataFrame, *, title: str) -> go.Figure:
+    """Compare EAD share and ECL share by IFRS 9 stage."""
+    data = frame.copy()
+    total_ead = float(data["total_ead"].sum())
+    total_ecl = float(data["weighted_ecl"].sum())
+    data["EAD share"] = data["total_ead"] / total_ead if total_ead else 0.0
+    data["ECL share"] = data["weighted_ecl"] / total_ecl if total_ecl else 0.0
+    data["Stage"] = data["stage"].map(lambda value: f"Stage {int(value)}")
+    chart = data.melt(
+        id_vars=["Stage", "stage"],
+        value_vars=["EAD share", "ECL share"],
+        var_name="Measure",
+        value_name="Share",
+    )
+    fig = go.Figure()
+    for measure, colour in [("EAD share", "#5B7FA3"), ("ECL share", "#2457A6")]:
+        subset = chart[chart["Measure"].eq(measure)]
+        fig.add_trace(
+            go.Bar(
+                y=subset["Stage"],
+                x=subset["Share"],
+                orientation="h",
+                name=measure,
+                marker_color=colour,
+                text=subset["Share"].map(lambda value: percentage(value, decimals=1)),
+                textposition="outside",
+                hovertemplate=f"{measure}<br>%{{y}}: %{{x:.2%}}<extra></extra>",
+            )
+        )
+    fig.update_layout(title=title, barmode="group")
+    fig.update_xaxes(tickformat=".0%")
+    return finish_chart(fig, yaxis_title="", xaxis_title="Share of portfolio")
 
 
 def stage_bar(

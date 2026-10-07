@@ -7,16 +7,18 @@ import streamlit as st
 
 from app.components.formatting import APP_VERSION
 
-NAVY = "#17324D"
-BLUE = "#286090"
-TEAL = "#287C8E"
+NAVY = "#12263A"
+BLUE = "#2457A6"
+SECONDARY_BLUE = "#5B7FA3"
+TEAL = "#23827A"
 POSITIVE = "#2E7D5B"
 WARNING = "#B7791F"
 ADVERSE = "#B42318"
-TEXT = "#1D2939"
+TEXT = "#182230"
 SECONDARY_TEXT = "#667085"
-GRID = "#E4E7EC"
-BACKGROUND = "#F8FAFC"
+GRID = "#EAECF0"
+BORDER = "#DDE2E8"
+BACKGROUND = "#F7F8FA"
 SURFACE = "#FFFFFF"
 
 STAGE_COLOURS = {1: BLUE, 2: WARNING, 3: ADVERSE}
@@ -65,13 +67,17 @@ def status_label(status: str) -> str:
 
 def apply_plotly_template() -> None:
     """Register and apply the global Plotly template."""
-    pio.templates["ifrs9_v2"] = {
+    pio.templates["ifrs9_v3"] = {
         "layout": {
             "paper_bgcolor": SURFACE,
             "plot_bgcolor": SURFACE,
-            "font": {"color": TEXT, "family": "Arial, sans-serif", "size": 13},
-            "title": {"font": {"color": TEXT, "size": 18}},
-            "colorway": [BLUE, TEAL, POSITIVE, WARNING, ADVERSE, NAVY],
+            "font": {
+                "color": TEXT,
+                "family": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif",
+                "size": 12,
+            },
+            "title": {"font": {"color": TEXT, "size": 16}},
+            "colorway": [BLUE, TEAL, SECONDARY_BLUE, WARNING, ADVERSE, NAVY],
             "xaxis": {
                 "gridcolor": GRID,
                 "zerolinecolor": GRID,
@@ -94,11 +100,11 @@ def apply_plotly_template() -> None:
             "margin": {"l": 40, "r": 20, "t": 58, "b": 48},
         }
     }
-    pio.templates.default = "ifrs9_v2"
+    pio.templates.default = "ifrs9_v3"
 
 
 def apply_streamlit_theme() -> None:
-    """Apply lightweight V2 styling to Streamlit surfaces."""
+    """Apply lightweight V3 styling to Streamlit surfaces."""
     apply_plotly_template()
     st.markdown(
         f"""
@@ -109,11 +115,29 @@ def apply_streamlit_theme() -> None:
             --ifrs9-text: {TEXT};
             --ifrs9-muted: {SECONDARY_TEXT};
             --ifrs9-grid: {GRID};
+            --ifrs9-border: {BORDER};
             --ifrs9-bg: {BACKGROUND};
         }}
         .stApp {{
             background: {BACKGROUND};
             color: {TEXT};
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+        }}
+        .block-container {{
+            max-width: 1260px;
+            padding-top: 2rem;
+            padding-bottom: 3rem;
+        }}
+        h1 {{
+            font-size: 2rem;
+            line-height: 1.18;
+            margin-bottom: 0.25rem;
+        }}
+        h2 {{
+            font-size: 1.25rem;
+        }}
+        h3 {{
+            font-size: 1.05rem;
         }}
         h1, h2, h3 {{
             color: {TEXT};
@@ -141,6 +165,7 @@ def apply_streamlit_theme() -> None:
         }}
         [data-testid="stSidebar"] {{
             background: #FFFFFF;
+            border-right: 1px solid {BORDER};
         }}
         .ifrs9-version {{
             color: {SECONDARY_TEXT};
@@ -153,5 +178,5 @@ def apply_streamlit_theme() -> None:
 
 
 def version_caption() -> str:
-    """Return the V2 app version caption."""
+    """Return the app version caption."""
     return f"App version {APP_VERSION}"

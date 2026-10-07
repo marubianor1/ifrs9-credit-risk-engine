@@ -27,19 +27,25 @@ configure_mode_from_streamlit_secrets(st.secrets)
 init_state()
 render_sidebar()
 
-pages = [
-    st.Page("pages/overview.py", title="Overview"),
-    st.Page("pages/scoring.py", title="Scoring Models"),
-    st.Page("pages/pd.py", title="PD"),
-    st.Page("pages/lgd.py", title="LGD"),
-    st.Page("pages/ead.py", title="EAD"),
-    st.Page("pages/sicr.py", title="SICR & Staging"),
-    st.Page("pages/ecl.py", title="ECL"),
-    st.Page("pages/scenario_lab.py", title="Scenario Lab"),
-    st.Page("pages/monitoring.py", title="Model Monitoring"),
-    st.Page("pages/report_generator.py", title="Report Generator"),
-    st.Page("pages/about.py", title="About / Methodology"),
-]
+pages = {
+    "Portfolio": [
+        st.Page("pages/overview.py", title="Overview"),
+        st.Page("pages/ecl.py", title="ECL"),
+        st.Page("pages/scenario_lab.py", title="Scenario Lab"),
+    ],
+    "Risk Models": [
+        st.Page("pages/scoring.py", title="Scoring Models"),
+        st.Page("pages/pd.py", title="PD"),
+        st.Page("pages/lgd.py", title="LGD"),
+        st.Page("pages/ead.py", title="EAD"),
+        st.Page("pages/sicr.py", title="SICR & Staging"),
+    ],
+    "Governance": [
+        st.Page("pages/monitoring.py", title="Model Monitoring"),
+        st.Page("pages/report_generator.py", title="Report Generator"),
+        st.Page("pages/about.py", title="Methodology"),
+    ],
+}
 
 navigation = st.navigation(pages)
 navigation.run()

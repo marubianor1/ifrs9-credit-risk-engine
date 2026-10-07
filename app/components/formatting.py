@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-APP_VERSION = "2.0.0-beta"
+APP_VERSION = "3.0.0-beta"
 SPLIT_ORDER = ["TRAIN", "VALIDATION", "OOT"]
 
 DISPLAY_LABELS = {

@@ -3,11 +3,18 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+from app.components.advisory import (
+    stage_concentration_insight,
+    stage_concentration_table,
+)
 from app.components.charts import (
     calibration_scatter,
+    dumbbell_chart,
+    oe_bullet_chart,
     scenario_delta_bar,
     scenario_waterfall,
     stage_bar,
+    stage_concentration_chart,
 )
 from app.components.formatting import (
     au_date,
@@ -46,11 +53,11 @@ def test_percentage_bps_and_ratio_formatting() -> None:
 
 
 def test_semantic_stage_and_scenario_colours() -> None:
-    assert STAGE_COLOURS[1] == "#286090"
+    assert STAGE_COLOURS[1] == "#2457A6"
     assert STAGE_COLOURS[2] == "#B7791F"
     assert STAGE_COLOURS[3] == "#B42318"
-    assert SCENARIO_COLOURS["BASE"] == "#286090"
-    assert SCENARIO_COLOURS["UPSIDE"] == "#287C8E"
+    assert SCENARIO_COLOURS["BASE"] == "#2457A6"
+    assert SCENARIO_COLOURS["UPSIDE"] == "#23827A"
     assert SCENARIO_COLOURS["DOWNSIDE"] == "#B42318"
 
 
@@ -189,6 +196,76 @@ def test_scenario_waterfall_reconciles_to_total_delta() -> None:
 
     assert fig.data[0].measure[-1] == "total"
     assert float(fig.data[0].y[-1]) == 13.0
+
+
+def test_stage_concentration_table_and_insight_are_deterministic() -> None:
+    stage = pd.DataFrame(
+        [
+            {"stage": 1, "total_ead": 90.0, "weighted_ecl": 10.0, "coverage_ratio": 0.01},
+            {"stage": 2, "total_ead": 8.0, "weighted_ecl": 30.0, "coverage_ratio": 0.12},
+            {"stage": 3, "total_ead": 2.0, "weighted_ecl": 60.0, "coverage_ratio": 0.40},
+        ]
+    )
+
+    table = stage_concentration_table(stage)
+    insight = stage_concentration_insight(stage, source="unit")
+
+    assert table.loc[0, "% EAD"] == "90.00%"
+    assert table.loc[2, "% ECL"] == "60.00%"
+    assert insight is not None
+    assert "10.0% of portfolio exposure" in insight.text
+    assert "90.0% of expected credit loss" in insight.text
+
+
+def test_stage_concentration_chart_compares_ead_and_ecl_share() -> None:
+    stage = pd.DataFrame(
+        [
+            {"stage": 1, "total_ead": 90.0, "weighted_ecl": 10.0},
+            {"stage": 2, "total_ead": 10.0, "weighted_ecl": 90.0},
+        ]
+    )
+    fig = stage_concentration_chart(stage, title="Concentration")
+
+    assert {trace.name for trace in fig.data} == {"EAD share", "ECL share"}
+    assert fig.layout.xaxis.tickformat == ".0%"
+
+
+def test_dumbbell_chart_structure() -> None:
+    frame = pd.DataFrame(
+        [
+            {"split": "TRAIN", "observed": 0.01, "predicted": 0.012},
+            {"split": "OOT", "observed": 0.02, "predicted": 0.018},
+        ]
+    )
+    fig = dumbbell_chart(
+        frame,
+        category="split",
+        left_value="predicted",
+        right_value="observed",
+        left_label="Predicted",
+        right_label="Observed",
+        title="Dumbbell",
+        xaxis_title="Rate",
+    )
+
+    assert len(fig.data) == 4
+    assert fig.data[-2].name == "Predicted"
+    assert fig.data[-1].name == "Observed"
+
+
+def test_oe_bullet_reference_line_is_one() -> None:
+    frame = pd.DataFrame(
+        [
+            {"metric": "O/E TRAIN", "oe": 1.0},
+            {"metric": "O/E OOT", "oe": 0.75},
+        ]
+    )
+    fig = oe_bullet_chart(frame, category="metric", oe_value="oe", title="O/E")
+
+    assert any(
+        shape.type == "line" and shape.x0 == 1.0 and shape.x1 == 1.0
+        for shape in fig.layout.shapes
+    )
 
 
 def test_app_code_uses_current_streamlit_and_pandas_width_apis() -> None:
