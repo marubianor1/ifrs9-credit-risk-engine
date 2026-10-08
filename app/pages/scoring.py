@@ -1,15 +1,23 @@
-"""Scoring model page for existing scorecard runs."""
+"""V3 model validation workbench for existing scorecard runs."""
 
 from __future__ import annotations
 
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-from app.components.charts import calibration_scatter, finish_chart, metric_bar
-from app.components.formatting import SPLIT_ORDER, ordered_splits, percentage
+from app.components.advisory import (
+    apply_advisory_css,
+    context_bar,
+    executive_kpis,
+    methodology_note,
+    page_header,
+    section_header,
+    source_caption,
+)
+from app.components.charts import calibration_scatter, dumbbell_chart, finish_chart
+from app.components.formatting import au_date, bps, ordered_splits, ratio
 from app.components.guidance import render_guidance
-from app.components.layout import friendly_error, page_title
-from app.components.metrics import kpi_row
+from app.components.layout import friendly_error
 from app.components.tables import bad_rate_table, format_table
 from app.services.runtime import full_mode_message, is_cloud_demo
 from app.services.scorecard import (
@@ -24,10 +32,16 @@ def _load(run_id: str):
     return load_scorecard_artifacts(run_id)
 
 
+def _metric_row(metrics: pd.DataFrame, split: str) -> pd.Series:
+    return metrics.loc[metrics["split"].eq(split)].iloc[0]
+
+
 def main() -> None:
-    page_title(
+    apply_advisory_css()
+    page_header(
         "Scoring Models",
-        "Scorecard discrimination, calibration and stability diagnostics for model-risk review.",
+        "Model validation workbench for behavioural scorecard discrimination, calibration "
+        "and stability.",
     )
     runs = available_scorecard_runs()
     if not runs:
@@ -48,6 +62,7 @@ def main() -> None:
         friendly_error(exc)
         return
 
+    run_meta = artifacts["run"]
     features = artifacts["features"]
     iv = artifacts["iv"]
     coefficients = artifacts["coefficients"]
@@ -61,34 +76,129 @@ def main() -> None:
     metrics = metrics.assign(
         split=pd.Categorical(metrics["split"], categories=split_order, ordered=True)
     ).sort_values("split")
+    oot_split = "OOT" if "OOT" in set(metrics["split"].astype(str)) else split_order[-1]
+    oot = _metric_row(metrics, oot_split)
+    oot_oe = oot["observed_bad_rate"] / oot["predicted_bad_rate"]
 
-    st.caption(f"Selected run: `{selected}` | Reporting date: 1 Mar 2025")
-    render_guidance("scoring")
-    selected_split = st.selectbox(
-        "Performance split",
-        split_order,
-        index=split_order.index("OOT") if "OOT" in split_order else 0,
+    config = run_meta.get("config", {})
+    train_window = (
+        f"{config.get('train', {}).get('start', 'n/a')} to "
+        f"{config.get('train', {}).get('end', 'n/a')}"
     )
-    split_row = metrics.loc[metrics["split"].eq(selected_split)].iloc[0]
-    kpi_row(
+    oot_window = (
+        f"{config.get('oot', {}).get('start', 'n/a')} to "
+        f"{config.get('oot', {}).get('end', 'n/a')}"
+    )
+    context_bar(
         [
-            ("AUC", f"{split_row['roc_auc']:.3f}", "Discrimination on the selected split."),
-            ("Gini", f"{split_row['gini']:.3f}", "2 x AUC - 1."),
-            ("KS", f"{split_row['ks']:.3f}", "Maximum separation between goods and bads."),
+            ("Model", selected),
+            ("Population", str(run_meta.get("population", "behavioural")).title()),
+            ("Train", train_window),
             (
-                "Observed default rate",
-                percentage(split_row["observed_bad_rate"]),
-                "12-month observed default rate.",
+                "Validation",
+                f"{config.get('validation', {}).get('start', 'n/a')} to "
+                f"{config.get('validation', {}).get('end', 'n/a')}",
             ),
-            (
-                "Predicted PD",
-                percentage(split_row["predicted_bad_rate"]),
-                "Mean predicted probability of default.",
-            ),
+            ("OOT", oot_window),
         ]
     )
+    executive_kpis(
+        [
+            ("AUC", f"{oot['roc_auc']:.3f}", f"{oot_split} discrimination"),
+            ("Gini", f"{oot['gini']:.3f}", "2 x AUC - 1"),
+            ("KS", f"{oot['ks']:.3f}", "Maximum separation"),
+            ("OOT O/E", ratio(oot_oe), "Observed default rate / predicted PD"),
+        ],
+        columns=4,
+    )
 
-    with st.expander("Future run controls", expanded=False):
+    section_header("Calibration summary", "Observed default rate versus predicted PD by split.")
+    comparison = metrics.copy()
+    comparison["Difference"] = comparison["observed_bad_rate"] - comparison["predicted_bad_rate"]
+    st.plotly_chart(
+        dumbbell_chart(
+            comparison,
+            category="split",
+            left_value="predicted_bad_rate",
+            right_value="observed_bad_rate",
+            left_label="Predicted PD",
+            right_label="Observed default rate",
+            title="Observed versus predicted default rate",
+            xaxis_title="12-month default rate",
+        ),
+        width="stretch",
+    )
+    source_caption(f"As at {au_date('2025-03-01')} · Source: {selected}")
+    st.dataframe(format_table(bad_rate_table(metrics)), width="stretch", hide_index=True)
+
+    tab_cal, tab_disc, tab_stability, tab_features = st.tabs(
+        ["Calibration", "Discrimination", "Stability", "Feature Diagnostics"]
+    )
+    with tab_cal:
+        section_header(
+            "Calibration curve",
+            "Predicted PD versus observed default rate by risk band.",
+        )
+        if {"predicted_bad_rate", "observed_bad_rate"}.issubset(calibration.columns):
+            st.plotly_chart(
+                calibration_scatter(
+                    calibration,
+                    title="Risk-band calibration backtest",
+                ),
+                width="stretch",
+            )
+        st.dataframe(format_table(calibration), width="stretch", hide_index=True)
+    with tab_disc:
+        section_header("Discrimination", "Compact model performance metrics by split.")
+        display_cols = ["split", "roc_auc", "gini", "ks", "pr_auc", "brier"]
+        st.dataframe(format_table(metrics[display_cols]), width="stretch", hide_index=True)
+    with tab_stability:
+        section_header("Population stability", "PSI ranked by feature and comparison.")
+        psi_ranked = psi.sort_values("psi", ascending=False).copy()
+        fig = px.bar(
+            psi_ranked,
+            x="psi",
+            y="feature",
+            color="comparison",
+            orientation="h",
+            title="Population stability index",
+            labels={"psi": "PSI", "feature": "Feature", "comparison": "Comparison"},
+        )
+        fig.add_vline(x=0.25, line_dash="dash", line_color="#B7791F")
+        st.plotly_chart(finish_chart(fig, xaxis_title="PSI"), width="stretch")
+        st.caption(
+            "Dashed line is an illustrative project monitoring reference, not a "
+            "regulatory threshold."
+        )
+        st.dataframe(format_table(psi), width="stretch", hide_index=True)
+        with st.expander("Yearly diagnostics", expanded=False):
+            st.dataframe(format_table(yearly), width="stretch", hide_index=True)
+    with tab_features:
+        left, right = st.columns(2)
+        with left:
+            section_header(
+                "Information value",
+                "Feature ranking from the existing scorecard artifacts.",
+            )
+            st.dataframe(format_table(iv), width="stretch", hide_index=True)
+            with st.expander("Feature list", expanded=False):
+                st.dataframe(format_table(features), width="stretch", hide_index=True)
+        with right:
+            section_header("Coefficients", "Model coefficients and sign diagnostics.")
+            st.dataframe(format_table(coefficients), width="stretch", hide_index=True)
+            with st.expander("Bands and deciles", expanded=False):
+                st.dataframe(format_table(bands), width="stretch", hide_index=True)
+                st.dataframe(format_table(deciles), width="stretch", hide_index=True)
+
+    oot_difference = comparison.loc[comparison["split"].eq(oot_split), "Difference"].iloc[0]
+    methodology_note(
+        "Bad-rate differences are displayed as observed default rate less predicted PD. "
+        f"For {oot_split}, the calibration difference is {bps(oot_difference)}. "
+        "Monitoring statuses use project thresholds only."
+    )
+    render_guidance("scoring")
+
+    with st.expander("Model settings", expanded=False):
         if is_cloud_demo():
             st.info(full_mode_message())
         else:
@@ -102,16 +212,7 @@ def main() -> None:
                 "Sampling strategy",
                 ["none", "random_nondefault", "stratified_nondefault"],
             )
-            d1, d2, d3 = st.columns(3)
-            train_dates = d1.text_input("Train dates", "2012-01-01 to 2018-12-31")
-            validation_dates = d2.text_input("Validation dates", "2019-01-01 to 2021-12-31")
-            oot_dates = d3.text_input("OOT dates", "2022-01-01 to 2024-03-01")
             if st.button("Run Model", type="primary"):
-                st.caption(
-                    "Date windows are captured for future configuration; the current scorecard "
-                    "backend uses the configured development sample windows."
-                )
-                _ = (train_dates, validation_dates, oot_dates)
                 with st.spinner("Training scorecard via existing backend API..."):
                     try:
                         new_run_id = run_scorecard_from_controls(
@@ -124,103 +225,6 @@ def main() -> None:
                     else:
                         st.session_state["scorecard_run"] = new_run_id
                         st.success(f"Created scorecard run `{new_run_id}`")
-
-    table_left, chart_right = st.columns([1.2, 1])
-    with table_left:
-        st.subheader("12-month observed default rate versus predicted PD")
-        st.dataframe(
-            format_table(bad_rate_table(metrics)),
-            width="stretch",
-            hide_index=True,
-        )
-    with chart_right:
-        comparison = metrics.melt(
-            id_vars=["split"],
-            value_vars=["observed_bad_rate", "predicted_bad_rate"],
-            var_name="measure",
-            value_name="rate",
-        )
-        comparison["measure"] = comparison["measure"].map(
-            {
-                "observed_bad_rate": "Observed default rate",
-                "predicted_bad_rate": "Predicted PD",
-            }
-        )
-        fig = px.bar(
-            comparison,
-            x="split",
-            y="rate",
-            color="measure",
-            barmode="group",
-            title="Observed default rate and predicted PD by split",
-            category_orders={"split": SPLIT_ORDER},
-            labels={"split": "Split", "rate": "Rate", "measure": "Measure"},
-            color_discrete_map={
-                "Observed default rate": "#286090",
-                "Predicted PD": "#287C8E",
-            },
-        )
-        fig.update_traces(hovertemplate="%{x}<br>%{y:.2%}<extra></extra>")
-        fig.update_yaxes(tickformat=".1%")
-        st.plotly_chart(finish_chart(fig, yaxis_title="Rate"), width="stretch")
-
-    tab_perf, tab_cal, tab_stability, tab_features = st.tabs(
-        ["Performance", "Calibration", "Stability", "Feature Diagnostics"]
-    )
-    with tab_perf:
-        render_guidance("scoring_performance")
-        st.plotly_chart(
-            metric_bar(
-                metrics,
-                x="split",
-                y="roc_auc",
-                color="split",
-                title="AUC by development split",
-                yaxis_title="AUC",
-            ),
-            width="stretch",
-        )
-        st.dataframe(format_table(metrics), width="stretch", hide_index=True)
-    with tab_cal:
-        st.subheader("Calibration curve")
-        render_guidance("scoring_calibration")
-        if {"predicted_bad_rate", "observed_bad_rate"}.issubset(calibration.columns):
-            st.plotly_chart(
-                calibration_scatter(
-                    calibration,
-                    title="Calibration backtest: observed default rate versus predicted PD",
-                ),
-                width="stretch",
-            )
-        st.dataframe(format_table(calibration), width="stretch", hide_index=True)
-    with tab_stability:
-        st.plotly_chart(
-            metric_bar(
-                psi,
-                x="feature",
-                y="psi",
-                color="comparison",
-                title="Population stability index by feature",
-                yaxis_title="PSI",
-            ),
-            width="stretch",
-        )
-        st.dataframe(format_table(psi), width="stretch", hide_index=True)
-        with st.expander("Yearly performance diagnostics", expanded=False):
-            st.dataframe(format_table(yearly), width="stretch", hide_index=True)
-    with tab_features:
-        left, right = st.columns(2)
-        with left:
-            st.subheader("Information value ranking")
-            st.dataframe(format_table(iv), width="stretch", hide_index=True)
-            with st.expander("Feature list", expanded=False):
-                st.dataframe(format_table(features), width="stretch", hide_index=True)
-        with right:
-            st.subheader("Coefficients")
-            st.dataframe(format_table(coefficients), width="stretch", hide_index=True)
-            with st.expander("Score bands and deciles", expanded=False):
-                st.dataframe(format_table(bands), width="stretch", hide_index=True)
-                st.dataframe(format_table(deciles), width="stretch", hide_index=True)
 
 
 main()

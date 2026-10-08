@@ -6,7 +6,7 @@ import streamlit as st
 
 from app.components.formatting import au_date, percentage, usd
 from app.components.theme import version_caption
-from app.services.artifacts import data_period, git_commit, mode_label
+from app.services.artifacts import data_period, mode_label
 
 
 def money(value: float) -> str:
@@ -28,29 +28,23 @@ def page_title(title: str, caption: str) -> None:
 def render_sidebar() -> None:
     """Render global project metadata in the sidebar."""
     with st.sidebar:
-        st.header("IFRS 9 Portfolio")
+        st.markdown("### IFRS 9 Credit Risk Engine")
+        st.caption("Portfolio analytics & model governance")
         st.selectbox(
             "Portfolio mode",
             ["Demo / Existing Runs"],
             key="portfolio_mode",
-            help="Phase 1 starts from persisted artifacts and does not retrain on load.",
+            help="The app starts from persisted artifacts and does not retrain on load.",
         )
         st.divider()
-        st.metric("Project status", "Visual UX V2")
-        st.metric("Execution mode", mode_label())
+        st.caption(f"Execution mode: {mode_label()}")
+        st.caption(f"Reporting date: {au_date('2025-03-01')}")
+        st.caption(f"Data period: {data_period()}")
+        st.divider()
+        st.caption("Freddie Mac case study")
+        st.caption("App V3 beta")
         st.caption(version_caption())
         st.caption("Portfolio/research implementation, not regulatory production readiness.")
-        st.write(f"Reporting date: `{au_date('2025-03-01')}`")
-        st.write(f"Git commit: `{git_commit()}`")
-        st.write(f"Data period: {data_period()}")
-        st.divider()
-        st.write("Selected runs")
-        st.write(f"Scorecard: `{st.session_state.get('scorecard_run', 'behavioural_qe_v1')}`")
-        st.write(f"PD: `{st.session_state.get('pd_run', 'pd_behavioural_qe_v1')}`")
-        st.write("LGD: `lgd_v1_2`")
-        st.write("EAD: `ead_v1`")
-        st.write("Staging: `sicr_v1_1`")
-        st.write(f"ECL: `{st.session_state.get('ecl_run', 'ecl_v1')}`")
 
 
 def friendly_error(error: Exception) -> None:
